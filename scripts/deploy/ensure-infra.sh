@@ -40,30 +40,36 @@ r2_name_by_title() {
   BUCKET_NAME="$BUCKET_NAME" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const a=Array.isArray(j)?j:[j];const n=a.find(x=>x.name===process.env.BUCKET_NAME);console.log(n?.name||"")}catch{}})'
 }
 
+# 从 D1 列表 JSON 中按 name 找 id（d1 list 的 id 字段为 uuid）
+d1_id_by_name() {
+  DB_NAME="$DB_NAME" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const a=Array.isArray(j)?j:[j];const n=a.find(x=>x.name===process.env.DB_NAME);console.log(n?.uuid||n?.id||"")}catch{}})'
+}
+
 echo "### D1: $DB_NAME" >&2
-d1_id="$(npx wrangler d1 info "$DB_NAME" --json 2>/dev/null | jq_path "id")"
+# 用 list 查找（d1 info 在库不存在时非零退出会触发 set -e），找不到再创建
+d1_id="$(npx wrangler d1 list --json 2>/dev/null | d1_id_by_name)" || true
 if [ -z "$d1_id" ]; then
-  d1_id="$(npx wrangler d1 create "$DB_NAME" --json | jq_path "database_id")"
-  [ -z "$d1_id" ] && d1_id="$(npx wrangler d1 create "$DB_NAME" --json | jq_path "id")"
+  d1_id="$(npx wrangler d1 create "$DB_NAME" --json 2>/dev/null | jq_path "database_id")" || true
+  [ -z "$d1_id" ] && d1_id="$(npx wrangler d1 create "$DB_NAME" --json 2>/dev/null | jq_path "id")" || true
 fi
 [ -n "$d1_id" ] || { echo "ERROR: 无法获取/创建 D1 数据库 $DB_NAME" >&2; exit 1; }
 echo "D1_DATABASE_ID=$d1_id"
 
 echo "### KV: $KV_TITLE" >&2
-kv_id="$(npx wrangler kv namespace list --json | kv_id_by_title)"
+kv_id="$(npx wrangler kv namespace list --json 2>/dev/null | kv_id_by_title)" || true
 if [ -z "$kv_id" ]; then
-  kv_id="$(npx wrangler kv namespace create "$KV_TITLE" --json | jq_path "id")"
+  kv_id="$(npx wrangler kv namespace create "$KV_TITLE" --json 2>/dev/null | jq_path "id")" || true
 fi
-kv_preview_id="$(npx wrangler kv namespace list --json | kv_id_by_title)"
+kv_preview_id="$(npx wrangler kv namespace list --json 2>/dev/null | kv_id_by_title)" || true
 if [ -z "$kv_preview_id" ]; then
-  kv_preview_id="$(npx wrangler kv namespace create "$KV_TITLE" --preview --json | jq_path "id")"
+  kv_preview_id="$(npx wrangler kv namespace create "$KV_TITLE" --preview --json 2>/dev/null | jq_path "id")" || true
 fi
 [ -n "$kv_id" ] || { echo "ERROR: 无法获取/创建 KV namespace $KV_TITLE" >&2; exit 1; }
 echo "KV_NAMESPACE_ID=$kv_id"
 echo "KV_NAMESPACE_PREVIEW_ID=${kv_preview_id:-$kv_id}"
 
 echo "### R2: $BUCKET_NAME" >&2
-existing="$(npx wrangler r2 bucket list --json | r2_name_by_title)"
+existing="$(npx wrangler r2 bucket list --json 2>/dev/null | r2_name_by_title)" || true
 if [ -z "$existing" ]; then
   npx wrangler r2 bucket create "$BUCKET_NAME" >/dev/null 2>&1 \
     || echo "WARN: R2 桶 $BUCKET_NAME 创建失败（可能全局已存在同名桶），后续步骤按已存在处理"
