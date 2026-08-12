@@ -14,6 +14,14 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const src = readFileSync(join(root, "wrangler.jsonc"), "utf8");
 
+// 部署必需的环境变量缺失时直接报错，避免静默生成空 id 的配置
+for (const name of ["D1_DATABASE_ID", "KV_NAMESPACE_ID", "R2_BUCKET_NAME"]) {
+  if (!process.env[name]) {
+    console.error(`缺少部署必需环境变量 ${name}（请先运行 scripts/deploy/ensure-infra.sh）`);
+    process.exit(1);
+  }
+}
+
 const out = src
   .replace(/\$\{([A-Z0-9_]+)\}/g, (m, name) => process.env[name] ?? "")
   .replace(/,\s*\n\s*"SEED_ADMIN_PASSWORD"\s*:\s*"[^"]*"\s*\n/, "\n");

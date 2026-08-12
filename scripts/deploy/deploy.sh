@@ -10,7 +10,8 @@ cd "$(dirname "$0")/../.."
 
 # 凭据二选一：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID（CI），或 wrangler login 的 OAuth（本地）。
 # ensure-infra.sh 会在缺少 token 时打印提示并回退 OAuth。
-eval "$(./scripts/deploy/ensure-infra.sh)"
+# 读取 ensure-infra 输出的 KEY=VALUE 并 export（eval 的普通赋值不会传给子进程 node）
+eval "$(./scripts/deploy/ensure-infra.sh | sed 's/^/export /')"
 
 node scripts/deploy/build-config.mjs
 
