@@ -1,0 +1,45 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "babble",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // 自定义域名（自己的实例部署时取消注释，换成你的域名，要求该域名 zone 已托管在 Cloudflare）
+  // 注意：为了让别人 fork 后也能一键部署，默认不绑自定义域名，只使用 *.workers.dev
+  // "routes": [{ "pattern": "bb.kyeo.top", "custom_domain": true }],
+
+  // 本地开发（wrangler dev）不需要真实 database_id，远程部署由 CI 注入 D1_DATABASE_ID
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "babble",
+      "database_id": "${D1_DATABASE_ID}",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "babble-assets",
+      "preview_bucket_name": "babble-assets-preview"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "${KV_NAMESPACE_ID}",
+      "preview_id": "${KV_NAMESPACE_PREVIEW_ID}"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "MEMO_HUB", "class_name": "MemoHub" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MemoHub"] }],
+
+  // 种子管理员（CI 注入；本地开发在 .dev.vars 中覆盖）
+  "vars": {
+    "SEED_ADMIN_USERNAME": "${SEED_ADMIN_USERNAME}",
+    "SEED_ADMIN_PASSWORD": "${SEED_ADMIN_PASSWORD}"
+  }
+}
