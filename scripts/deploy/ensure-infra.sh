@@ -49,20 +49,27 @@ echo "### D1: $DB_NAME" >&2
 # 用 list 查找（d1 info 在库不存在时非零退出会触发 set -e），找不到再创建
 d1_id="$(npx wrangler d1 list --json 2>/dev/null | d1_id_by_name)" || true
 if [ -z "$d1_id" ]; then
-  d1_id="$(npx wrangler d1 create "$DB_NAME" --json 2>/dev/null | jq_path "database_id")" || true
-  [ -z "$d1_id" ] && d1_id="$(npx wrangler d1 create "$DB_NAME" --json 2>/dev/null | jq_path "id")" || true
+  # 只创建一次并保留完整输出到日志（权限/格式问题一目了然）
+  d1_create_out="$(npx wrangler d1 create "$DB_NAME" --json 2>&1 || true)"
+  echo "DEBUG: d1 create 输出: ${d1_create_out:-（空）}" >&2
+  d1_id="$(printf '%s' "$d1_create_out" | jq_path "database_id")" || true
+  [ -z "$d1_id" ] && d1_id="$(printf '%s' "$d1_create_out" | jq_path "id")" || true
 fi
-[ -n "$d1_id" ] || { echo "ERROR: 无法获取/创建 D1 数据库 $DB_NAME" >&2; exit 1; }
+[ -n "$d1_id" ] || { echo "ERROR: 无法获取/创建 D1 数据库 $DB_NAME（请确认 API Token 含 D1:Edit 权限）" >&2; exit 1; }
 echo "D1_DATABASE_ID=$d1_id"
 
 echo "### KV: $KV_TITLE" >&2
 kv_id="$(npx wrangler kv namespace list --json 2>/dev/null | kv_id_by_title)" || true
 if [ -z "$kv_id" ]; then
-  kv_id="$(npx wrangler kv namespace create "$KV_TITLE" --json 2>/dev/null | jq_path "id")" || true
+  kv_create_out="$(npx wrangler kv namespace create "$KV_TITLE" --json 2>&1 || true)"
+  echo "DEBUG: kv create 输出: ${kv_create_out:-（空）}" >&2
+  kv_id="$(printf '%s' "$kv_create_out" | jq_path "id")" || true
 fi
 kv_preview_id="$(npx wrangler kv namespace list --json 2>/dev/null | kv_id_by_title)" || true
 if [ -z "$kv_preview_id" ]; then
-  kv_preview_id="$(npx wrangler kv namespace create "$KV_TITLE" --preview --json 2>/dev/null | jq_path "id")" || true
+  kv_preview_out="$(npx wrangler kv namespace create "$KV_TITLE" --preview --json 2>&1 || true)"
+  echo "DEBUG: kv preview create 输出: ${kv_preview_out:-（空）}" >&2
+  kv_preview_id="$(printf '%s' "$kv_preview_out" | jq_path "id")" || true
 fi
 [ -n "$kv_id" ] || { echo "ERROR: 无法获取/创建 KV namespace $KV_TITLE" >&2; exit 1; }
 echo "KV_NAMESPACE_ID=$kv_id"
@@ -71,8 +78,8 @@ echo "KV_NAMESPACE_PREVIEW_ID=${kv_preview_id:-$kv_id}"
 echo "### R2: $BUCKET_NAME" >&2
 existing="$(npx wrangler r2 bucket list --json 2>/dev/null | r2_name_by_title)" || true
 if [ -z "$existing" ]; then
-  npx wrangler r2 bucket create "$BUCKET_NAME" >/dev/null 2>&1 \
-    || echo "WARN: R2 桶 $BUCKET_NAME 创建失败（可能全局已存在同名桶），后续步骤按已存在处理"
+  r2_create_out="$(npx wrangler r2 bucket create "$BUCKET_NAME" 2>&1 || true)"
+  echo "DEBUG: r2 create 输出: ${r2_create_out:-（空）}" >&2
 fi
 echo "R2_BUCKET_NAME=$BUCKET_NAME"
 
