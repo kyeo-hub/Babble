@@ -8,10 +8,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-require_env() { : "${!1:?环境变量 $1 未设置（CI 中请配置 secrets.CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID）}"; }
-require_env CLOUDFLARE_API_TOKEN
-require_env CLOUDFLARE_ACCOUNT_ID
-
+# 凭据二选一：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID（CI），或 wrangler login 的 OAuth（本地）。
+# ensure-infra.sh 会在缺少 token 时打印提示并回退 OAuth。
 eval "$(./scripts/deploy/ensure-infra.sh)"
 
 node scripts/deploy/build-config.mjs

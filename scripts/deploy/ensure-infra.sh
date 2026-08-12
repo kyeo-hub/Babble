@@ -4,9 +4,14 @@
 # 本地用法：先设置 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID，再执行本脚本查看输出。
 set -euo pipefail
 
-require_env() { : "${!1:?环境变量 $1 未设置}"; }
-require_env CLOUDFLARE_API_TOKEN
-require_env CLOUDFLARE_ACCOUNT_ID
+# 凭据二选一：CLOUDFLARE_API_TOKEN（CI）或 wrangler login 的 OAuth（本地）。
+# 缺少 token 时回退 OAuth；ACCOUNT_ID 单账号场景可不设。
+if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+  export CLOUDFLARE_API_TOKEN
+else
+  echo "WARN: 未设置 CLOUDFLARE_API_TOKEN，将使用 wrangler 已登录的 OAuth 凭据" >&2
+fi
+[ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ] && export CLOUDFLARE_ACCOUNT_ID
 
 DB_NAME="${D1_DATABASE_NAME:-babble}"
 KV_TITLE="${KV_NAMESPACE_TITLE:-babble-kv}"
