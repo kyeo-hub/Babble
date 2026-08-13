@@ -107,9 +107,15 @@ echo "KV_NAMESPACE_ID=$kv_id"
 echo "KV_NAMESPACE_PREVIEW_ID=${kv_preview_id:-$kv_id}"
 
 echo "### R2: $BUCKET_NAME" >&2
-# R2 绑定只使用桶名（无需 id）：尝试创建，已存在则忽略失败
+# R2 绑定只使用桶名（无需 id）：尝试创建。
+# "already exists"（code 10004）是预期情况（此前已创建），静默复用；其他失败才打印 DEBUG。
 r2_f="$(wrangler_capture r2 bucket create "$BUCKET_NAME")"
-dump_and_rm "$r2_f" "r2 create 输出"
+if grep -q "already exists" "$r2_f"; then
+  echo "INFO: R2 桶 $BUCKET_NAME 已存在，复用" >&2
+  rm -f "$r2_f"
+else
+  dump_and_rm "$r2_f" "r2 create 输出"
+fi
 echo "R2_BUCKET_NAME=$BUCKET_NAME"
 
 echo "### done" >&2
