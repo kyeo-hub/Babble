@@ -4,11 +4,10 @@
 # 本地用法：先设置 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID，再执行本脚本查看输出。
 # 注意：
 #   - wrangler 4.x 仅 d1 list / d1 info 支持 --json，create 类命令解析其 TOML 输出；
-#   - npx 在部分 CI 环境会吞掉/延迟子进程输出，故直接调用本地二进制，create 输出走临时文件。
+#   - 为避免 CI 下命令替换丢失子进程输出，所有 wrangler 输出一律走临时文件（fd 重定向）。
 set -euo pipefail
 
 # 凭据二选一：CLOUDFLARE_API_TOKEN（CI）或 wrangler login 的 OAuth（本地）。
-# 缺少 token 时回退 OAuth；ACCOUNT_ID 单账号场景可不设。
 if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
   export CLOUDFLARE_API_TOKEN
 else
@@ -30,7 +29,7 @@ if [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
   BUCKET_NAME="${BUCKET_NAME}-${suffix}"
 fi
 
-# 运行 wrangler 命令，stdout+stderr 写入临时文件（输出可能包含账号信息，不回显内容），打印文件名
+# 运行 wrangler 命令，stdout+stderr 写入临时文件，回显文件名
 wrangler_capture() {
   local f
   f="$(mktemp)"
@@ -38,25 +37,40 @@ wrangler_capture() {
   printf '%s' "$f"
 }
 
+# 打印临时文件内容到 stderr（诊断用），然后删除
+dump_and_rm() {
+  local f="$1" label="$2"
+  echo "DEBUG: $label:" >&2
+  sed 's/^/  /' "$f" >&2
+  rm -f "$f"
+}
+
 # 从 TOML 片段中提取键值，如：toml_value "$content" "database_id"
 toml_value() {
   printf '%s' "$1" | grep -oE "$2 = \"[^\"]+\"" | head -1 | grep -oE '"[^"]+"$' | tr -d '"'
 }
 
-# 从 d1 info --json 输出中取 id（兼容 id / uuid / database_id 字段）
+# 从 d1 info --json 输出中取 id（兼容 id / uuid / database_id 字段），stdin 读取
 d1_info_id() {
   node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j?.id||j?.uuid||j?.database_id||"")}catch{console.log("")}})'
 }
 
 echo "### D1: $DB_NAME" >&2
-# d1 info 支持 --json；库不存在时非零退出，|| true 兜底
-d1_id="$("$WRANGLER" d1 info "$DB_NAME" --json 2>/dev/null | d1_info_id)" || true
+d1_info_f="$(wrangler_capture d1 info "$DB_NAME" --json)"
+dump_and_rm "$d1_info_f" "d1 info 输出"
+d1_id="$(cat "$d1_info_f" | d1_info_id)" || true
 if [ -z "$d1_id" ]; then
-  d1_f="$(wrangler_capture d1 create "$DB_NAME")"
-  d1_id="$(toml_value "$(cat "$d1_f")" "database_id")" || true
-  # 创建成功但解析失败时，用 d1 info 回查兜底
-  [ -z "$d1_id" ] && d1_id="$("$WRANGLER" d1 info "$DB_NAME" --json 2>/dev/null | d1_info_id)" || true
-  rm -f "$d1_f"
+  d1_create_f="$(wrangler_capture d1 create "$DB_NAME")"
+  dump_and_rm "$d1_create_f" "d1 create 输出"
+  d1_id="$(toml_value "$(cat "$d1_create_f")" "database_id")" || true
+  if [ -z "$d1_id" ]; then
+    # 创建后回查兜底
+    d1_retry_f="$(wrangler_capture d1 info "$DB_NAME" --json)"
+    dump_and_rm "$d1_retry_f" "d1 info 回查输出"
+    d1_id="$(cat "$d1_retry_f" | d1_info_id)" || true
+    rm -f "$d1_retry_f"
+  fi
+  rm -f "$d1_create_f"
 fi
 [ -n "$d1_id" ] || { echo "ERROR: 无法获取/创建 D1 数据库 $DB_NAME（请确认 API Token 含 D1:Edit 权限）" >&2; exit 1; }
 echo "D1_DATABASE_ID=$d1_id"
@@ -70,6 +84,7 @@ kv_table_id() {
 kv_id="$(kv_table_id)" || true
 if [ -z "$kv_id" ]; then
   kv_f="$(wrangler_capture kv namespace create "$KV_TITLE")"
+  dump_and_rm "$kv_f" "kv create 输出"
   kv_id="$(toml_value "$(cat "$kv_f")" "id")" || true
   [ -z "$kv_id" ] && kv_id="$(kv_table_id)" || true
   rm -f "$kv_f"
@@ -77,6 +92,7 @@ fi
 kv_preview_id="$(kv_table_id)" || true
 if [ -z "$kv_preview_id" ]; then
   kv_pf="$(wrangler_capture kv namespace create "$KV_TITLE" --preview)"
+  dump_and_rm "$kv_pf" "kv preview create 输出"
   kv_preview_id="$(toml_value "$(cat "$kv_pf")" "id")" || true
   [ -z "$kv_preview_id" ] && kv_preview_id="$(kv_table_id)" || true
   rm -f "$kv_pf"
@@ -88,7 +104,7 @@ echo "KV_NAMESPACE_PREVIEW_ID=${kv_preview_id:-$kv_id}"
 echo "### R2: $BUCKET_NAME" >&2
 # R2 绑定只使用桶名（无需 id）：尝试创建，已存在则忽略失败
 r2_f="$(wrangler_capture r2 bucket create "$BUCKET_NAME")"
-rm -f "$r2_f"
+dump_and_rm "$r2_f" "r2 create 输出"
 echo "R2_BUCKET_NAME=$BUCKET_NAME"
 
 echo "### done" >&2
