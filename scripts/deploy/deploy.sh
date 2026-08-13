@@ -15,12 +15,16 @@ cd "$(dirname "$0")/../.."
 infra_out="$(./scripts/deploy/ensure-infra.sh)" || { echo "ERROR: ensure-infra 失败" >&2; exit 1; }
 eval "$(printf '%s\n' "$infra_out" | sed 's/^/export /')"
 
+# 直接使用本地 wrangler 二进制（npx 在 CI 下输出捕获不可靠）
+WRANGLER="./node_modules/.bin/wrangler"
+[ -x "$WRANGLER" ] || WRANGLER="npx wrangler"
+
 node scripts/deploy/build-config.mjs
 
-npx wrangler d1 migrations apply babble --config wrangler.deploy.jsonc --remote
+"$WRANGLER" d1 migrations apply babble --config wrangler.deploy.jsonc --remote
 
 if [ -n "${SEED_ADMIN_PASSWORD:-}" ]; then
-  printf '%s' "$SEED_ADMIN_PASSWORD" | npx wrangler secret put SEED_ADMIN_PASSWORD --config wrangler.deploy.jsonc
+  printf '%s' "$SEED_ADMIN_PASSWORD" | "$WRANGLER" secret put SEED_ADMIN_PASSWORD --config wrangler.deploy.jsonc
 fi
 
-npx wrangler deploy --config wrangler.deploy.jsonc
+"$WRANGLER" deploy --config wrangler.deploy.jsonc
