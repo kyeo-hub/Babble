@@ -56,25 +56,27 @@ d1_id_by_name() {
 }
 
 echo "### D1: $DB_NAME" >&2
-# 用 d1 list --json 按 name 查找 id。不能用 d1 info：它会按 wrangler.jsonc 的
-# database_id 字段解析（模板里是 ${D1_DATABASE_ID} 占位符），导致 7404 找不到库。
+# 多策略查找 id（全部走临时文件 + 日志打印，便于诊断）：
+#   a) d1 list --json 按 name 匹配 uuid
+#   b) d1 list 纯表格行（首个非空单元格 = Database ID）
+#   c) d1 create TOML（数据库不存在时创建）
+d1_id=""
 d1_list_f="$(wrangler_capture d1 list --json)"
-dump_and_rm "$d1_list_f" "d1 list 输出"
+dump_and_rm "$d1_list_f" "d1 list --json 输出"
 d1_id="$(d1_id_by_name < "$d1_list_f")" || true
+if [ -z "$d1_id" ]; then
+  d1_tbl_f="$(wrangler_capture d1 list)"
+  dump_and_rm "$d1_tbl_f" "d1 list 表格输出"
+  d1_id="$(grep -F "$DB_NAME" "$d1_tbl_f" | head -1 | awk -F'│' '{for(i=1;i<=NF;i++){gsub(/ /,"",$i);if($i!=""){print $i;exit}}}')" || true
+  rm -f "$d1_tbl_f"
+fi
 if [ -z "$d1_id" ]; then
   d1_create_f="$(wrangler_capture d1 create "$DB_NAME")"
   dump_and_rm "$d1_create_f" "d1 create 输出"
   d1_id="$(toml_value "$(cat "$d1_create_f")" "database_id")" || true
-  if [ -z "$d1_id" ]; then
-    # 创建后回查兜底
-    d1_retry_f="$(wrangler_capture d1 list --json)"
-    dump_and_rm "$d1_retry_f" "d1 list 回查输出"
-    d1_id="$(d1_id_by_name < "$d1_retry_f")" || true
-    rm -f "$d1_retry_f"
-  fi
   rm -f "$d1_create_f"
 fi
-[ -n "$d1_id" ] || { echo "ERROR: 无法获取/创建 D1 数据库 $DB_NAME（请确认 API Token 含 D1:Edit 权限）" >&2; exit 1; }
+[ -n "$d1_id" ] || { echo "ERROR: 无法获取/创建 D1 数据库 $DB_NAME（请确认 API Token 含 D1:Edit 权限，详见上方 DEBUG 输出）" >&2; exit 1; }
 echo "D1_DATABASE_ID=$d1_id"
 
 echo "### KV: $KV_TITLE" >&2
