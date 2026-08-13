@@ -13,6 +13,8 @@ export type AppEnv = { Bindings: Env; Variables: AuthVariables };
 
 const ACCESS_TTL = 60 * 60; // 1 小时
 const REFRESH_TTL = 30 * 24 * 60 * 60; // 30 天
+const LOGIN_MAX_ATTEMPTS = 5; // 限流窗口内允许的失败次数
+const LOGIN_WINDOW_SECONDS = 60; // 限流窗口（秒）
 
 const errorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
@@ -76,6 +78,7 @@ export function authRoutes(app: OpenAPIHono<AppEnv>): void {
     responses: {
       200: { description: "登录成功", content: { "application/json": { schema: tokenPairSchema } } },
       401: { description: "用户名或密码错误", content: { "application/json": { schema: errorSchema } } },
+      429: { description: "登录尝试过于频繁", content: { "application/json": { schema: errorSchema } } },
       503: { description: "JWT_SECRET 未配置", content: { "application/json": { schema: errorSchema } } },
     },
   });
@@ -84,12 +87,25 @@ export function authRoutes(app: OpenAPIHono<AppEnv>): void {
       return c.json({ error: { code: "INTERNAL", message: "服务未配置 JWT_SECRET" } }, 503);
     }
     const { username, password } = c.req.valid("json");
+
+    // 登录限流（KV 计数，按 IP+用户名，窗口内最多 LOGIN_MAX_ATTEMPTS 次失败）
+    const ip = c.req.header("cf-connecting-ip") ?? "unknown";
+    const rlKey = `rl:login:${ip}:${username}`;
+    const attempts = Number((await c.env.KV.get(rlKey)) ?? 0);
+    if (attempts >= LOGIN_MAX_ATTEMPTS) {
+      return c.json({ error: { code: "RATE_LIMITED", message: "登录尝试过于频繁，请稍后再试" } }, 429);
+    }
+
     const db = createDb(c.env);
     await ensureSeedAdmin(db, c.env);
     const user = await db.select().from(users).where(eq(users.username, username)).get();
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      await c.env.KV.put(rlKey, String(attempts + 1), { expirationTtl: LOGIN_WINDOW_SECONDS });
       return c.json({ error: { code: "UNAUTHORIZED", message: "用户名或密码错误" } }, 401);
     }
+    // 登录成功清除限流计数
+    await c.env.KV.delete(rlKey);
+
     const now = Math.floor(Date.now() / 1000);
     const base = { sub: user.id, iat: now };
     const accessToken = await signJwt({ ...base, type: "access", exp: now + ACCESS_TTL }, c.env.JWT_SECRET);

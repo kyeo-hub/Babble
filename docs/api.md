@@ -85,6 +85,8 @@
 { "accessToken": "<jwt>", "refreshToken": "<jwt>", "user": { ...User } }
 ```
 
+限流：同一 IP+用户名在 60 秒窗口内失败超过 5 次返回 `429 RATE_LIMITED`，登录成功后计数清零。
+
 ### POST `/auth/refresh`
 
 请求：`{"refreshToken":"<jwt>"}` → 响应同 login（新 token 对）。
@@ -201,14 +203,14 @@
 
 ## 8. 实时推送
 
-### GET `/ws` — WebSocket（P4 实现）
+### GET `/ws` — WebSocket（已实现）
 
-握手需带 JWT（query `?token=<jwt>` 或子协议头）。
+握手需带凭证：query `?token=<jwt>`（access JWT 或长期 API Token），或 `sec-websocket-protocol` 子协议头。
 连接后服务端推送事件（见下），客户端无需回包。
 
-### GET `/events` — SSE（P4 实现，小程序/低端客户端友好）
+### GET `/events` — SSE（已实现，小程序/低端客户端友好）
 
-`?token=<jwt>&since=<ts>`：`since` 用于断线补偿，补发该时间点后的变更事件。
+`?token=<jwt>&since=<ts>`：`since` 用于断线补偿，补发该时间点后缓冲中的事件（缓冲上限 50 条，超出部分需重新拉取列表兜底）。
 
 ### 事件负载
 
@@ -246,3 +248,4 @@ Telegram 更新（新消息 → 创建 memo；`/list` 等命令按需扩展）�
 | v1-p1 | 2026-08-13 | P1 已实现：认证（login/refresh/me/tokens）+ memo CRUD/分页/过滤/置顶/归档 |
 | v1-p2 | 2026-08-13 | P2 已实现：资源上传（multipart→R2）/meta/文件直出/删除；memo 详情与列表填充 `resources`；删除 memo 级联清理资源 |
 | v1-p3 | 2026-08-13 | P3 已实现：标签（`#tag` 派生填充 memo 输出 + `GET /tags` 统计）、公开分享（`POST /memos/{id}/share` 短码存 KV + 无鉴权 `GET /p/{code}`，仅 public）、keyword 多关键字 AND 分词 |
+| v1-p4 | 2026-08-13 | P4 已实现：实时推送（`WS /api/v1/ws` + `SSE /api/v1/events`，MemoHub DO，事件广播与 `since` 断线补偿）、登录限流（KV 计数，IP+用户名，60s 窗口 5 次，429 RATE_LIMITED） |

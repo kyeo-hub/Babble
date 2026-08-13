@@ -6,6 +6,7 @@ import { createDb } from "../db/client";
 import { memos, resources as resourcesTable } from "../db/schema";
 import { resourceJsonSchema, toResourceJson } from "./resources";
 import { extractTags } from "../lib/tags";
+import { notifyMemoChange } from "../lib/realtime";
 import { genUid } from "../lib/uid";
 
 const visibilitySchema = z.enum(["public", "private"]);
@@ -179,6 +180,7 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
       })
       .returning()
       .get();
+    await notifyMemoChange(c.env, "memo.created", toMemoJson(row));
     return c.json(toMemoJson(row), 201);
   });
 
@@ -245,6 +247,7 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
     if (body.pinned !== undefined) updates.pinned = body.pinned ? 1 : 0;
     if (body.rowStatus !== undefined) updates.rowStatus = body.rowStatus;
     const row = await db.update(memos).set(updates).where(eq(memos.id, id)).returning().get();
+    await notifyMemoChange(c.env, "memo.updated", toMemoJson(row));
     return c.json(toMemoJson(row), 200);
   });
 
@@ -275,6 +278,7 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
     }
     await db.delete(resourcesTable).where(eq(resourcesTable.memoId, id)).run();
     await db.delete(memos).where(eq(memos.id, id)).run();
+    await notifyMemoChange(c.env, "memo.deleted", { id });
     return c.body(null, 204);
   });
 
@@ -304,6 +308,7 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
       .where(eq(memos.id, id))
       .returning()
       .get();
+    await notifyMemoChange(c.env, "memo.pinned", toMemoJson(row));
     return c.json(toMemoJson(row), 200);
   });
 
@@ -336,6 +341,7 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
       .where(eq(memos.id, id))
       .returning()
       .get();
+    await notifyMemoChange(c.env, "memo.updated", toMemoJson(row));
     return c.json(toMemoJson(row), 200);
   });
 }
