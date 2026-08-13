@@ -243,4 +243,5 @@ Telegram 更新（新消息 → 创建 memo；`/list` 等命令按需扩展）�
 |---|---|---|
 | v1-draft | 2026-08-12 | P0 冻结初稿 |
 | v1-p1 | 2026-08-13 | P1 已实现：认证（login/refresh/me/tokens）+ memo CRUD/分页/过滤/置顶/归档 |
-| v1-p2 | 2026-08-13 | P2 已实现：资源上传（multipart→R2）/meta/文件直出/删除；memo 详情与列表填充 `resources`；删除 memo 级联清理资源；`tags` 仍为占位空数组（P3 实现） |
+| v1-p2 | 2026-08-13 | P2 已实现：资源上传（multipart→R2）/meta/文件直出/删除；memo 详情与列表填充 `resources`；删除 memo 级联清理资源 |
+| v1-p3 | 2026-08-13 | P3 已实现：标签（`#tag` 派生填充 memo 输出 + `GET /tags` 统计）、公开分享（`POST /memos/{id}/share` 短码存 KV + 无鉴权 `GET /p/{code}`，仅 public）、keyword 多关键字 AND 分词 |

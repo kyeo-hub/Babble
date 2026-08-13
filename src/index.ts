@@ -3,6 +3,8 @@ import { swaggerUI } from "@hono/swagger-ui";
 import { authRoutes, type AppEnv } from "./routes/auth";
 import { memosRoutes } from "./routes/memos";
 import { resourcesRoutes } from "./routes/resources";
+import { tagsRoutes } from "./routes/tags";
+import { shareRoutes } from "./routes/share";
 
 const app = new OpenAPIHono<AppEnv>();
 
@@ -21,6 +23,8 @@ const api = new OpenAPIHono<AppEnv>();
 authRoutes(api);
 memosRoutes(api);
 resourcesRoutes(api);
+tagsRoutes(api);
+shareRoutes(api, app); // POST share 挂 /api/v1（走认证），公开 /p/:code 挂主应用
 app.route("/api/v1", api);
 
 // OpenAPI 契约：GET /openapi.json + GET /doc（Swagger UI）

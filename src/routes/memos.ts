@@ -5,6 +5,7 @@ import { authMiddleware } from "../lib/auth";
 import { createDb } from "../db/client";
 import { memos, resources as resourcesTable } from "../db/schema";
 import { resourceJsonSchema, toResourceJson } from "./resources";
+import { extractTags } from "../lib/tags";
 import { genUid } from "../lib/uid";
 
 const visibilitySchema = z.enum(["public", "private"]);
@@ -14,7 +15,7 @@ const errorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });
 
-const memoJsonSchema = z.object({
+export const memoJsonSchema = z.object({
   id: z.number(),
   uid: z.string(),
   content: z.string(),
@@ -41,7 +42,7 @@ const updateMemoSchema = z.object({
   rowStatus: rowStatusSchema.optional(),
 });
 
-function toMemoJson(m: typeof memos.$inferSelect, resources: (typeof resourcesTable.$inferSelect)[] = []) {
+export function toMemoJson(m: typeof memos.$inferSelect, resources: (typeof resourcesTable.$inferSelect)[] = []) {
   return {
     id: m.id,
     uid: m.uid,
@@ -49,7 +50,7 @@ function toMemoJson(m: typeof memos.$inferSelect, resources: (typeof resourcesTa
     visibility: m.visibility,
     pinned: m.pinned === 1,
     rowStatus: m.rowStatus,
-    tags: [], // P3：由 content 中的 #tag 派生
+    tags: extractTags(m.content), // 由 content 中的 #tag 派生
     resources: resources.map(toResourceJson),
     createdTs: m.createdAt,
     updatedTs: m.updatedAt,
@@ -96,8 +97,13 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
     if (q.visibility) conditions.push(eq(memos.visibility, q.visibility));
     if (q.archived === "true") conditions.push(eq(memos.rowStatus, "archived"));
     if (q.archived === "false") conditions.push(eq(memos.rowStatus, "normal"));
-    if (q.tag) conditions.push(like(memos.content, `%#${q.tag}%`)); // P3 改为 tags 表精确匹配
-    if (q.keyword) conditions.push(like(memos.content, `%${q.keyword}%`));
+    if (q.tag) conditions.push(like(memos.content, `%#${q.tag}%`)); // 近似匹配，标签以 # 前缀存储
+    if (q.keyword) {
+      // 多关键字 AND 分词（SQLite LIKE 对 ASCII 大小写不敏感）
+      for (const term of q.keyword.split(/\s+/).filter(Boolean)) {
+        conditions.push(like(memos.content, `%${term}%`));
+      }
+    }
     if (q.start_ts) conditions.push(gte(memos.createdAt, q.start_ts));
     if (q.end_ts) conditions.push(lte(memos.createdAt, q.end_ts));
     const where = and(...conditions);

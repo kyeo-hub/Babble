@@ -18,3 +18,14 @@ export function genToken(): string {
   const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
   return `bab_${hex}`;
 }
+
+/** 生成分享短码（base62，默认 8 位） */
+export function genShareCode(length = 8): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += chars[bytes[i] % chars.length];
+  }
+  return out;
+}
