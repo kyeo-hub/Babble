@@ -2,6 +2,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
 import { authRoutes, type AppEnv } from "./routes/auth";
 import { memosRoutes } from "./routes/memos";
+import { resourcesRoutes } from "./routes/resources";
 
 const app = new OpenAPIHono<AppEnv>();
 
@@ -19,6 +20,7 @@ app.get("/api/v1/health", (c) => {
 const api = new OpenAPIHono<AppEnv>();
 authRoutes(api);
 memosRoutes(api);
+resourcesRoutes(api);
 app.route("/api/v1", api);
 
 // OpenAPI 契约：GET /openapi.json + GET /doc（Swagger UI）

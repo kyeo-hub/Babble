@@ -1,0 +1,37 @@
+# ============================================================
+# Babble 线上冒烟测试（P1）—— 复制到终端粘贴执行
+# 第一步：把下面两处 <你的SEED_ADMIN_PASSWORD> 换成你配置的
+#         SEED_ADMIN_PASSWORD（GitHub Secrets 里的那个值）
+# 两种用法：
+#   1) 整段复制粘贴到终端
+#   2) 保存后直接运行：bash smoke-test.txt
+# ============================================================
+
+B=https://bb.kyeo.top/api/v1
+PASSWORD='admin'     # ← 改成你的种子管理员密码
+
+echo "== 1. 登录（期望 200，返回 token 对 + user）=="
+curl -s -X POST $B/auth/login -H 'Content-Type: application/json' \
+  -d "{\"username\":\"admin\",\"password\":\"$PASSWORD\"}"
+echo
+
+echo "== 2. 取 token 并创建 memo（期望 201，含 id）=="
+TOKEN=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' \
+  -d "{\"username\":\"admin\",\"password\":\"$PASSWORD\"}" \
+  | node -pe 'JSON.parse(require("fs").readFileSync(0)).accessToken')
+echo "token 前缀: ${TOKEN:0:24}..."
+curl -s -X POST $B/memos -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"# 线上冒烟\nP1 部署成功 🎉","visibility":"public"}'
+echo
+
+echo "== 3. 列表（期望能看到刚创建的 memo）=="
+curl -s "$B/memos?page=1&page_size=5" -H "Authorization: Bearer $TOKEN"
+echo
+
+echo "== 4. 可选：创建 API Token（bot/小程序用）=="
+curl -s -X POST $B/auth/tokens -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"name":"smoke-bot"}'
+echo
+
+echo "== 完成。把以上输出贴回对话即可 =="

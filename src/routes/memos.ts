@@ -1,9 +1,10 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lte, sql } from "drizzle-orm";
 import type { AppEnv } from "./auth";
 import { authMiddleware } from "../lib/auth";
 import { createDb } from "../db/client";
-import { memos } from "../db/schema";
+import { memos, resources as resourcesTable } from "../db/schema";
+import { resourceJsonSchema, toResourceJson } from "./resources";
 import { genUid } from "../lib/uid";
 
 const visibilitySchema = z.enum(["public", "private"]);
@@ -21,7 +22,7 @@ const memoJsonSchema = z.object({
   pinned: z.boolean(),
   rowStatus: rowStatusSchema,
   tags: z.array(z.string()),
-  resources: z.array(z.any()),
+  resources: z.array(resourceJsonSchema),
   createdTs: z.number(),
   updatedTs: z.number(),
 });
@@ -40,7 +41,7 @@ const updateMemoSchema = z.object({
   rowStatus: rowStatusSchema.optional(),
 });
 
-function toMemoJson(m: typeof memos.$inferSelect) {
+function toMemoJson(m: typeof memos.$inferSelect, resources: (typeof resourcesTable.$inferSelect)[] = []) {
   return {
     id: m.id,
     uid: m.uid,
@@ -49,7 +50,7 @@ function toMemoJson(m: typeof memos.$inferSelect) {
     pinned: m.pinned === 1,
     rowStatus: m.rowStatus,
     tags: [], // P3：由 content 中的 #tag 派生
-    resources: [], // P2：资源表关联
+    resources: resources.map(toResourceJson),
     createdTs: m.createdAt,
     updatedTs: m.updatedAt,
   };
@@ -109,8 +110,29 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
       .limit(q.page_size)
       .offset((q.page - 1) * q.page_size)
       .all();
+    // 关联资源：一次查询本页所有 memo 的资源并按 memoId 分组
+    const resMap = new Map<number, (typeof resourcesTable.$inferSelect)[]>();
+    if (rows.length > 0) {
+      const resRows = await db
+        .select()
+        .from(resourcesTable)
+        .where(inArray(resourcesTable.memoId, rows.map((r) => r.id)))
+        .all();
+      for (const r of resRows) {
+        if (r.memoId !== null) {
+          const list = resMap.get(r.memoId) ?? [];
+          list.push(r);
+          resMap.set(r.memoId, list);
+        }
+      }
+    }
     return c.json(
-      { items: rows.map(toMemoJson), page: q.page, page_size: q.page_size, total: totalRow?.n ?? 0 },
+      {
+        items: rows.map((m) => toMemoJson(m, resMap.get(m.id) ?? [])),
+        page: q.page,
+        page_size: q.page_size,
+        total: totalRow?.n ?? 0,
+      },
       200,
     );
   });
@@ -170,7 +192,8 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
     const db = createDb(c.env);
     const row = await findMemo(db, c.get("userId"), id);
     if (!row) return c.json({ error: { code: "NOT_FOUND", message: "memo 不存在" } }, 404);
-    return c.json(toMemoJson(row), 200);
+    const resRows = await db.select().from(resourcesTable).where(eq(resourcesTable.memoId, row.id)).all();
+    return c.json(toMemoJson(row, resRows), 200);
   });
 
   // PATCH /memos/{id} —— 更新（任意可省字段）
@@ -233,11 +256,19 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
   app.openapi(deleteMemoRoute, async (c) => {
     const { id } = c.req.valid("param");
     const db = createDb(c.env);
-    const res = await db
-      .delete(memos)
+    const existing = await db
+      .select()
+      .from(memos)
       .where(and(eq(memos.id, id), eq(memos.creatorId, c.get("userId"))))
-      .run();
-    if (res.meta.changes === 0) return c.json({ error: { code: "NOT_FOUND", message: "memo 不存在" } }, 404);
+      .get();
+    if (!existing) return c.json({ error: { code: "NOT_FOUND", message: "memo 不存在" } }, 404);
+    // 级联清理关联资源（R2 对象 + 记录），再删 memo（避免外键约束）
+    const resRows = await db.select().from(resourcesTable).where(eq(resourcesTable.memoId, id)).all();
+    for (const r of resRows) {
+      await c.env.ASSETS.delete(r.storageKey);
+    }
+    await db.delete(resourcesTable).where(eq(resourcesTable.memoId, id)).run();
+    await db.delete(memos).where(eq(memos.id, id)).run();
     return c.body(null, 204);
   });
 
