@@ -63,6 +63,41 @@ npm run db:migrate:local
 2. 设置 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` 环境变量，然后 `npm run deploy`（或重新跑 Actions workflow）。
    `npm run deploy` 会先自动创建/复用 D1/KV/R2 并生成部署配置。
 
+## memos 数据迁移（双路径）
+
+将已有 memos 数据迁移到 Babble（工具位于 `scripts/migrate/`）：
+
+### 第 1 步：提取（二选一）
+
+```bash
+# 路径 A：服务器上有 memos.db（SQLite 直转，本地存储的资源会一并提取）
+node scripts/migrate/extract-sqlite.mjs /path/to/memos.db
+
+# 路径 B：只有账号（托管版/外部存储资源），用 API 拉取（token 在 memos「设置 → API」生成）
+node scripts/migrate/extract-api.mjs --url https://memos.kyeo.top --token <memos-token>
+```
+
+输出：`scripts/migrate/out/export.json`（中间格式）+ `out/resources/`（资源文件）。
+
+### 第 2 步：导入（生成 SQL 与 R2 上传脚本）
+
+```bash
+# 目标库已有数据时用大 offset 避免 id 冲突（如 100000）
+node scripts/migrate/import.mjs --id-offset 100000
+```
+
+输出：`out/migrate.sql` + `out/upload-r2.sh`。
+
+### 第 3 步：执行（需 Cloudflare 凭据）
+
+```bash
+CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... ./scripts/migrate/run-migration.sh
+```
+
+脚本会：应用 D1 迁移 → 上传 R2 资源 → 输出一致性报告（计数 + 时间戳抽样，与源核对）。
+
+> 说明：`protected` 可见性会映射为 `private`；`--id-offset` 需与导入时一致；建议先迁到空库或用大 offset 隔离。老站验证通过前保持运行，不要急于下线。
+
 ## 项目结构
 
 ```
@@ -85,13 +120,13 @@ scripts/deploy/           # 一键部署基建保障脚本
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | P0 | 工程骨架 + API 契约 + 一键部署 | ✅ |
-| P1 | 认证 + memo CRUD + 分页 | ⏳ |
-| P2 | 资源上传（R2） | - |
-| P3 | 标签 / 置顶 / 归档 / 搜索 / 分享 | - |
-| P4 | 实时推送（WS/SSE） | - |
-| P5 | Telegram bot | - |
-| P6 | memos 数据迁移（双路径） | - |
-| P7 | Android / 小程序接入 | - |
+| P1 | 认证 + memo CRUD + 分页 | ✅ |
+| P2 | 资源上传（R2） | ✅ |
+| P3 | 标签 / 分享 / 搜索增强 | ✅ |
+| P4 | 实时推送（WS/SSE）+ 登录限流 | ✅ |
+| P5 | Telegram bot | ⏳ |
+| P6 | memos 数据迁移（双路径） | ✅ 工具就绪（scripts/migrate/），待真实数据迁移 |
+| P7 | Android / 小程序接入 | ⏳ |
 
 ## License
 
