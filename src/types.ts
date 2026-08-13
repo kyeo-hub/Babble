@@ -11,6 +11,8 @@ export type Env = {
   /** 种子管理员（首启初始化，多用户注册默认关闭） */
   SEED_ADMIN_USERNAME?: string;
   SEED_ADMIN_PASSWORD?: string;
+  /** JWT 签名密钥（必填，缺失时认证接口返回 503） */
+  JWT_SECRET: string;
 }
 
 /** 统一响应结构 */

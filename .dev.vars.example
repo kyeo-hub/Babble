@@ -2,3 +2,5 @@
 # 仅用于本地 wrangler dev；CI/线上部署在 GitHub Secrets 中配置
 SEED_ADMIN_USERNAME=admin
 SEED_ADMIN_PASSWORD=change-me
+# JWT 签名密钥（必填，缺失时认证接口返回 503；线上用 GitHub Secret JWT_SECRET 注入）
+JWT_SECRET=dev-only-secret-please-change

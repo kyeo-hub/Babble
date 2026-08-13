@@ -27,4 +27,8 @@ if [ -n "${SEED_ADMIN_PASSWORD:-}" ]; then
   printf '%s' "$SEED_ADMIN_PASSWORD" | "$WRANGLER" secret put SEED_ADMIN_PASSWORD --config wrangler.deploy.jsonc
 fi
 
+if [ -n "${JWT_SECRET:-}" ]; then
+  printf '%s' "$JWT_SECRET" | "$WRANGLER" secret put JWT_SECRET --config wrangler.deploy.jsonc
+fi
+
 "$WRANGLER" deploy --config wrangler.deploy.jsonc

@@ -241,4 +241,5 @@ Telegram 更新（新消息 → 创建 memo；`/list` 等命令按需扩展）�
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
-| v1-draft | 2026-08-12 | P0 冻结初稿；P1 实现认证+memo CRUD 时以本契约为准 |
+| v1-draft | 2026-08-12 | P0 冻结初稿 |
+| v1-p1 | 2026-08-13 | P1 已实现：认证（login/refresh/me/tokens）+ memo CRUD/分页/过滤/置顶/归档；`tags`/`resources` 字段暂返回占位空数组（P2 资源、P3 标签实现） |

@@ -1,10 +1,11 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
-import type { Env } from "./types";
+import { authRoutes, type AppEnv } from "./routes/auth";
+import { memosRoutes } from "./routes/memos";
 
-const app = new OpenAPIHono<{ Bindings: Env }>();
+const app = new OpenAPIHono<AppEnv>();
 
-/** 健康检查（P0 骨架探针） */
+/** 健康检查 */
 app.get("/api/v1/health", (c) => {
   return c.json({
     ok: true,
@@ -13,6 +14,12 @@ app.get("/api/v1/health", (c) => {
     ts: Math.floor(Date.now() / 1000),
   });
 });
+
+// 业务路由统一挂在 /api/v1 下
+const api = new OpenAPIHono<AppEnv>();
+authRoutes(api);
+memosRoutes(api);
+app.route("/api/v1", api);
 
 // OpenAPI 契约：GET /openapi.json + GET /doc（Swagger UI）
 app.doc("/openapi.json", {
