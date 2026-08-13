@@ -4,5 +4,6 @@ dist/
 .dev.vars
 wrangler.deploy.jsonc
 .deploy.env
+smoke-test*.txt
 *.log
 .DS_Store
