@@ -188,7 +188,8 @@
 ```
 
 - `expiresTs` 为 null 表示永久；只允许分享 `visibility=public` 的 memo；
-- 短码存 KV：`share:<code> → memoUid`。
+- 短码存 KV：`share:<code> → memoUid`；
+- 撤销（`{"revoke":true}`）删除 KV 键存在**最终一致性窗口**（通常数秒、最长约 60 秒），窗口内短码仍可能可访问，严格场景可轮询确认。
 
 ### GET `/p/:code` — 公开访问（无鉴权）
 
