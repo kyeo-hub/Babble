@@ -73,29 +73,34 @@ if [ -z "$d1_id" ]; then
   d1_create_f="$(wrangler_capture d1 create "$DB_NAME")"
   d1_id="$(toml_value "$(cat "$d1_create_f")" "database_id")" || true
   dump_and_rm "$d1_create_f" "d1 create 输出"
+  # 创建后回查兜底
+  if [ -z "$d1_id" ]; then
+    d1_rf="$(wrangler_capture d1 list --json)"
+    d1_id="$(d1_id_by_name < "$d1_rf")" || true
+    dump_and_rm "$d1_rf" "d1 list 创建后回查"
+  fi
 fi
 [ -n "$d1_id" ] || { echo "ERROR: 无法获取/创建 D1 数据库 $DB_NAME（请确认 API Token 含 D1:Edit 权限，详见上方 DEBUG 输出）" >&2; exit 1; }
 echo "D1_DATABASE_ID=$d1_id"
 
 echo "### KV: $KV_TITLE" >&2
-# kv namespace list 不支持 --json，从表格行中按 title 找 id（行内首个非空单元格）
-kv_table_id() {
-  "$WRANGLER" kv namespace list 2>/dev/null | grep -F "$KV_TITLE" | head -1 \
-    | awk -F'│' '{for(i=1;i<=NF;i++){gsub(/ /,"",$i);if($i!=""){print $i;exit}}}'
+# kv namespace list 输出为 JSON（非表格，源码 logger2.log(JSON.stringify(...))）：按 title 找 id
+kv_lookup_id() {
+  "$WRANGLER" kv namespace list 2>/dev/null | KV_TITLE="$KV_TITLE" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const a=Array.isArray(j)?j:[j];const n=a.find(x=>x.title===process.env.KV_TITLE);console.log(n?.id||"")}catch{console.log("")}})'
 }
-kv_id="$(kv_table_id)" || true
+kv_id="$(kv_lookup_id)" || true
 if [ -z "$kv_id" ]; then
   kv_f="$(wrangler_capture kv namespace create "$KV_TITLE")"
   kv_id="$(toml_value "$(cat "$kv_f")" "id")" || true
   dump_and_rm "$kv_f" "kv create 输出"
-  [ -z "$kv_id" ] && kv_id="$(kv_table_id)" || true
+  [ -z "$kv_id" ] && kv_id="$(kv_lookup_id)" || true
 fi
-kv_preview_id="$(kv_table_id)" || true
+kv_preview_id="$(kv_lookup_id)" || true
 if [ -z "$kv_preview_id" ]; then
   kv_pf="$(wrangler_capture kv namespace create "$KV_TITLE" --preview)"
   kv_preview_id="$(toml_value "$(cat "$kv_pf")" "id")" || true
   dump_and_rm "$kv_pf" "kv preview create 输出"
-  [ -z "$kv_preview_id" ] && kv_preview_id="$(kv_table_id)" || true
+  [ -z "$kv_preview_id" ] && kv_preview_id="$(kv_lookup_id)" || true
 fi
 [ -n "$kv_id" ] || { echo "ERROR: 无法获取/创建 KV namespace $KV_TITLE" >&2; exit 1; }
 echo "KV_NAMESPACE_ID=$kv_id"
