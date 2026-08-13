@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "babble",
   "main": "src/index.ts",
+  "workers_dev": true,
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
 
