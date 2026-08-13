@@ -5,6 +5,7 @@ dist/
 wrangler.deploy.jsonc
 .deploy.env
 smoke-test*.txt
+test.txt
 scripts/migrate/out/
 *.log
 .DS_Store
