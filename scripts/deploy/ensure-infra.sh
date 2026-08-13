@@ -62,19 +62,17 @@ echo "### D1: $DB_NAME" >&2
 #   c) d1 create TOML（数据库不存在时创建）
 d1_id=""
 d1_list_f="$(wrangler_capture d1 list --json)"
-dump_and_rm "$d1_list_f" "d1 list --json 输出"
 d1_id="$(d1_id_by_name < "$d1_list_f")" || true
+dump_and_rm "$d1_list_f" "d1 list --json 输出"
 if [ -z "$d1_id" ]; then
   d1_tbl_f="$(wrangler_capture d1 list)"
-  dump_and_rm "$d1_tbl_f" "d1 list 表格输出"
   d1_id="$(grep -F "$DB_NAME" "$d1_tbl_f" | head -1 | awk -F'│' '{for(i=1;i<=NF;i++){gsub(/ /,"",$i);if($i!=""){print $i;exit}}}')" || true
-  rm -f "$d1_tbl_f"
+  dump_and_rm "$d1_tbl_f" "d1 list 表格输出"
 fi
 if [ -z "$d1_id" ]; then
   d1_create_f="$(wrangler_capture d1 create "$DB_NAME")"
-  dump_and_rm "$d1_create_f" "d1 create 输出"
   d1_id="$(toml_value "$(cat "$d1_create_f")" "database_id")" || true
-  rm -f "$d1_create_f"
+  dump_and_rm "$d1_create_f" "d1 create 输出"
 fi
 [ -n "$d1_id" ] || { echo "ERROR: 无法获取/创建 D1 数据库 $DB_NAME（请确认 API Token 含 D1:Edit 权限，详见上方 DEBUG 输出）" >&2; exit 1; }
 echo "D1_DATABASE_ID=$d1_id"
@@ -88,18 +86,16 @@ kv_table_id() {
 kv_id="$(kv_table_id)" || true
 if [ -z "$kv_id" ]; then
   kv_f="$(wrangler_capture kv namespace create "$KV_TITLE")"
-  dump_and_rm "$kv_f" "kv create 输出"
   kv_id="$(toml_value "$(cat "$kv_f")" "id")" || true
+  dump_and_rm "$kv_f" "kv create 输出"
   [ -z "$kv_id" ] && kv_id="$(kv_table_id)" || true
-  rm -f "$kv_f"
 fi
 kv_preview_id="$(kv_table_id)" || true
 if [ -z "$kv_preview_id" ]; then
   kv_pf="$(wrangler_capture kv namespace create "$KV_TITLE" --preview)"
-  dump_and_rm "$kv_pf" "kv preview create 输出"
   kv_preview_id="$(toml_value "$(cat "$kv_pf")" "id")" || true
+  dump_and_rm "$kv_pf" "kv preview create 输出"
   [ -z "$kv_preview_id" ] && kv_preview_id="$(kv_table_id)" || true
-  rm -f "$kv_pf"
 fi
 [ -n "$kv_id" ] || { echo "ERROR: 无法获取/创建 KV namespace $KV_TITLE" >&2; exit 1; }
 echo "KV_NAMESPACE_ID=$kv_id"
