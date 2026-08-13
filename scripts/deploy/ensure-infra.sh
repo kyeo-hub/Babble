@@ -50,24 +50,26 @@ toml_value() {
   printf '%s' "$1" | grep -oE "$2 = \"[^\"]+\"" | head -1 | grep -oE '"[^"]+"$' | tr -d '"'
 }
 
-# 从 d1 info --json 输出中取 id（兼容 id / uuid / database_id 字段），stdin 读取
-d1_info_id() {
-  node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(j?.id||j?.uuid||j?.database_id||"")}catch{console.log("")}})'
+# 从 d1 list --json 输出中按 name 找 id（d1 list 的 id 字段为 uuid），stdin 读取
+d1_id_by_name() {
+  DB_NAME="$DB_NAME" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const a=Array.isArray(j)?j:[j];const n=a.find(x=>x.name===process.env.DB_NAME);console.log(n?.uuid||n?.id||n?.database_id||"")}catch{console.log("")}})'
 }
 
 echo "### D1: $DB_NAME" >&2
-d1_info_f="$(wrangler_capture d1 info "$DB_NAME" --json)"
-dump_and_rm "$d1_info_f" "d1 info 输出"
-d1_id="$(cat "$d1_info_f" | d1_info_id)" || true
+# 用 d1 list --json 按 name 查找 id。不能用 d1 info：它会按 wrangler.jsonc 的
+# database_id 字段解析（模板里是 ${D1_DATABASE_ID} 占位符），导致 7404 找不到库。
+d1_list_f="$(wrangler_capture d1 list --json)"
+dump_and_rm "$d1_list_f" "d1 list 输出"
+d1_id="$(d1_id_by_name < "$d1_list_f")" || true
 if [ -z "$d1_id" ]; then
   d1_create_f="$(wrangler_capture d1 create "$DB_NAME")"
   dump_and_rm "$d1_create_f" "d1 create 输出"
   d1_id="$(toml_value "$(cat "$d1_create_f")" "database_id")" || true
   if [ -z "$d1_id" ]; then
     # 创建后回查兜底
-    d1_retry_f="$(wrangler_capture d1 info "$DB_NAME" --json)"
-    dump_and_rm "$d1_retry_f" "d1 info 回查输出"
-    d1_id="$(cat "$d1_retry_f" | d1_info_id)" || true
+    d1_retry_f="$(wrangler_capture d1 list --json)"
+    dump_and_rm "$d1_retry_f" "d1 list 回查输出"
+    d1_id="$(d1_id_by_name < "$d1_retry_f")" || true
     rm -f "$d1_retry_f"
   fi
   rm -f "$d1_create_f"
