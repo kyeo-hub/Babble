@@ -6,6 +6,7 @@ import { resourcesRoutes } from "./routes/resources";
 import { tagsRoutes } from "./routes/tags";
 import { shareRoutes } from "./routes/share";
 import { realtimeRoutes } from "./routes/realtime";
+import { importRoutes } from "./routes/importer";
 
 const app = new OpenAPIHono<AppEnv>();
 
@@ -27,6 +28,7 @@ resourcesRoutes(api);
 tagsRoutes(api);
 shareRoutes(api, app); // POST share 挂 /api/v1（走认证），公开 /p/:code 挂主应用
 realtimeRoutes(api); // /api/v1/ws + /api/v1/events
+importRoutes(api); // /api/v1/migrate/import
 app.route("/api/v1", api);
 
 // OpenAPI 契约：GET /openapi.json + GET /doc（Swagger UI）

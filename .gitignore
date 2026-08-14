@@ -7,5 +7,10 @@ wrangler.deploy.jsonc
 smoke-test*.txt
 test.txt
 scripts/migrate/out/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+babble-debug.apk
 *.log
 .DS_Store

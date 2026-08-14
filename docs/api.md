@@ -249,3 +249,4 @@ Telegram 更新（新消息 → 创建 memo；`/list` 等命令按需扩展）�
 | v1-p2 | 2026-08-13 | P2 已实现：资源上传（multipart→R2）/meta/文件直出/删除；memo 详情与列表填充 `resources`；删除 memo 级联清理资源 |
 | v1-p3 | 2026-08-13 | P3 已实现：标签（`#tag` 派生填充 memo 输出 + `GET /tags` 统计）、公开分享（`POST /memos/{id}/share` 短码存 KV + 无鉴权 `GET /p/{code}`，仅 public）、keyword 多关键字 AND 分词 |
 | v1-p4 | 2026-08-13 | P4 已实现：实时推送（`WS /api/v1/ws` + `SSE /api/v1/events`，MemoHub DO，事件广播与 `since` 断线补偿）、登录限流（KV 计数，IP+用户名，60s 窗口 5 次，429 RATE_LIMITED） |
+| v1-p5 | 2026-08-14 | P5 已实现：批量导入接口 `POST /migrate/import`（显式 id 单事务、资源 base64→R2、batchId 幂等、返回报告）+ Android APK 客户端（登录/memo 列表与编辑/迁移页） |
