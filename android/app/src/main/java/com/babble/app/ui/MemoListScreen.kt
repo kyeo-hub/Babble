@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,6 +57,7 @@ fun MemoListScreen(
     onNewMemo: () -> Unit,
     onEditMemo: (Memo) -> Unit,
     onMigrate: () -> Unit,
+    onSettings: () -> Unit,
     onLogout: () -> Unit,
 ) {
     var memos by remember { mutableStateOf<List<Memo>>(emptyList()) }
@@ -101,6 +103,9 @@ fun MemoListScreen(
             TopAppBar(
                 title = { Text("Babble") },
                 actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "设置")
+                    }
                     IconButton(onClick = onMigrate) {
                         Icon(Icons.Default.Upload, contentDescription = "迁移数据")
                     }

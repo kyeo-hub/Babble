@@ -17,11 +17,13 @@ import com.babble.app.ui.LoginScreen
 import com.babble.app.ui.MemoEditScreen
 import com.babble.app.ui.MemoListScreen
 import com.babble.app.ui.MigrateScreen
+import com.babble.app.ui.SettingsScreen
 
 sealed interface Screen {
     data object MemoList : Screen
     data class MemoEdit(val memo: Memo? = null) : Screen
     data object Migrate : Screen
+    data object Settings : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -36,7 +38,7 @@ class MainActivity : ComponentActivity() {
                 if (!loggedIn) {
                     LoginScreen(onLoginSuccess = { loggedIn = true })
                 } else {
-                    BackHandler(enabled = screen is Screen.MemoEdit || screen is Screen.Migrate) {
+                    BackHandler(enabled = screen is Screen.MemoEdit || screen is Screen.Migrate || screen is Screen.Settings) {
                         screen = Screen.MemoList
                     }
                     Surface(modifier = Modifier.fillMaxSize()) {
@@ -45,6 +47,7 @@ class MainActivity : ComponentActivity() {
                                 onNewMemo = { screen = Screen.MemoEdit(null) },
                                 onEditMemo = { screen = Screen.MemoEdit(it) },
                                 onMigrate = { screen = Screen.Migrate },
+                                onSettings = { screen = Screen.Settings },
                                 onLogout = {
                                     App.tokenStore.clear()
                                     loggedIn = false
@@ -57,6 +60,16 @@ class MainActivity : ComponentActivity() {
                                 onBack = { screen = Screen.MemoList },
                             )
                             Screen.Migrate -> MigrateScreen(
+                                onBack = { screen = Screen.MemoList },
+                            )
+                            Screen.Settings -> SettingsScreen(
+                                currentUrl = App.tokenStore.serverUrl,
+                                onSave = { url ->
+                                    App.configure(url)
+                                    App.tokenStore.clear()
+                                    loggedIn = false
+                                    screen = Screen.MemoList
+                                },
                                 onBack = { screen = Screen.MemoList },
                             )
                         }

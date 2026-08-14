@@ -98,6 +98,20 @@ CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... ./scripts/migrate/run-migrati
 
 > 说明：`protected` 可见性会映射为 `private`；`--id-offset` 需与导入时一致；建议先迁到空库或用大 offset 隔离。老站验证通过前保持运行，不要急于下线。
 
+## Android APP
+
+源码在 `android/`（Kotlin + Jetpack Compose），构建 debug APK：
+
+```bash
+cd android && ./gradlew :app:assembleDebug
+# 产物：android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+功能：登录（JWT）、memo 列表（Markdown 渲染）/新建/编辑、memos 数据迁移页。
+
+- **服务器地址可配置**：登录页与「设置」页（列表右上角 ⚙）可填写后端地址（默认 `https://bb.kyeo.top`），切换服务器会清除令牌并重新登录——适合 fork 部署到自定义域名的实例；
+- **数据迁移**：列表右上角 ⬆ 进入迁移页，选择旧 memos 的 `memos.db`，APP 内置解析并调用 `/api/v1/migrate/import` 导入。
+
 ## 项目结构
 
 ```

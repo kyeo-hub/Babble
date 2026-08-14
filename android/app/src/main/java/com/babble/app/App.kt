@@ -10,9 +10,18 @@ object App {
         private set
     lateinit var tokenStore: TokenStore
         private set
+    private lateinit var appContext: Context
 
-    fun init(context: Context, baseUrl: String = "https://bb.kyeo.top") {
-        tokenStore = TokenStore(context.applicationContext)
-        api = ApiClient(tokenStore, baseUrl)
+    fun init(context: Context) {
+        appContext = context.applicationContext
+        tokenStore = TokenStore(appContext)
+        api = ApiClient(tokenStore, tokenStore.serverUrl)
+    }
+
+    /** 切换服务器地址：持久化并重建 API 客户端（旧令牌归属旧服务器，调用方需清除并重新登录） */
+    fun configure(url: String) {
+        val normalized = url.trim().trimEnd('/')
+        tokenStore.serverUrl = normalized
+        api = ApiClient(tokenStore, normalized)
     }
 }

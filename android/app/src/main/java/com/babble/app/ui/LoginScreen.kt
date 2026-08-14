@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
+    var serverUrl by remember { mutableStateOf(App.tokenStore.serverUrl) }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
@@ -40,6 +41,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     ) {
         Text("Babble 登录", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
+        OutlinedTextField(
+            value = serverUrl,
+            onValueChange = { serverUrl = it },
+            label = { Text("服务器地址") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = username,
             onValueChange = { username = it },
@@ -63,6 +72,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     error = "请输入用户名和密码"
                     return@Button
                 }
+                val url = serverUrl.trim().trimEnd('/')
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    error = "服务器地址需以 http(s):// 开头"
+                    return@Button
+                }
+                App.configure(url)
                 loading = true
                 error = null
                 scope.launch {

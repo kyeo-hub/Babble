@@ -17,6 +17,11 @@ class TokenStore(context: Context) {
         get() = prefs.getString("refresh_token", null)
         set(value) = prefs.edit().putString("refresh_token", value).apply()
 
+    /** 后端服务器地址（fork 部署用户可配置自己的域名） */
+    var serverUrl: String
+        get() = prefs.getString("server_url", "https://bb.kyeo.top") ?: "https://bb.kyeo.top"
+        set(value) = prefs.edit().putString("server_url", value).apply()
+
     fun clear() {
         prefs.edit().clear().apply()
     }
