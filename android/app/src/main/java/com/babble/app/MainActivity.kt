@@ -7,17 +7,21 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.babble.app.data.Memo
+import com.babble.app.data.UpdateChecker
+import com.babble.app.data.UpdateInfo
 import com.babble.app.ui.LoginScreen
 import com.babble.app.ui.MemoEditScreen
 import com.babble.app.ui.MemoListScreen
 import com.babble.app.ui.MigrateScreen
 import com.babble.app.ui.SettingsScreen
+import com.babble.app.ui.UpdateAvailableDialog
 
 sealed interface Screen {
     data object MemoList : Screen
@@ -34,6 +38,18 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 var loggedIn by remember { mutableStateOf(App.tokenStore.accessToken != null) }
                 var screen by remember { mutableStateOf<Screen>(Screen.MemoList) }
+
+                // 启动自动检查更新（GitHub Releases update.json）
+                var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+                LaunchedEffect(Unit) {
+                    val info = UpdateChecker.check(App.UPDATE_MANIFEST_URL)
+                    if (info != null && info.versionCode > BuildConfig.VERSION_CODE) {
+                        updateInfo = info
+                    }
+                }
+                updateInfo?.let { info ->
+                    UpdateAvailableDialog(info = info, onDismiss = { updateInfo = null })
+                }
 
                 if (!loggedIn) {
                     LoginScreen(onLoginSuccess = { loggedIn = true })

@@ -1,8 +1,15 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+// 版本单一来源：android/version.properties（CI 发布与 APP 内更新共用）
+val versionProps = Properties().apply {
+    load(file("../version.properties").inputStream())
 }
 
 android {
@@ -13,13 +20,15 @@ android {
         applicationId = "com.babble.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = versionProps.getProperty("versionCode").toInt()
+        versionName = versionProps.getProperty("versionName")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            // 个人/自托管分发：release 复用 debug 签名，保证直接可安装
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -32,6 +41,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true // AGP 8 默认关闭 BuildConfig 生成，更新检查需要 VERSION_CODE
     }
 }
 

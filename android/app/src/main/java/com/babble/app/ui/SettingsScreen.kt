@@ -30,6 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.babble.app.App
+import com.babble.app.BuildConfig
+import com.babble.app.data.UpdateChecker
+import com.babble.app.data.UpdateInfo
 import com.babble.app.data.UpdateMeRequest
 import kotlinx.coroutines.launch
 
@@ -50,6 +53,12 @@ fun SettingsScreen(
     var newPassword by remember { mutableStateOf("") }
     var savingAccount by remember { mutableStateOf(false) }
     var accountError by remember { mutableStateOf<String?>(null) }
+
+    // 检查更新
+    var checkingUpdate by remember { mutableStateOf(false) }
+    var updateState by remember { mutableStateOf<String?>(null) }
+    var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // 加载当前用户名（GET /me，仅用于展示）
@@ -174,6 +183,44 @@ fun SettingsScreen(
             accountError?.let {
                 Text(it, color = MaterialTheme.colorScheme.error)
             }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+            Text("更新", style = MaterialTheme.typography.titleMedium)
+            Button(
+                onClick = {
+                    checkingUpdate = true
+                    updateState = null
+                    scope.launch {
+                        try {
+                            val info = UpdateChecker.check(App.UPDATE_MANIFEST_URL)
+                            if (info == null) {
+                                updateState = "检查失败或暂无更新源"
+                            } else if (info.versionCode > BuildConfig.VERSION_CODE) {
+                                updateInfo = info
+                                showUpdateDialog = true
+                            } else {
+                                updateState = "已是最新版本（v${info.versionName}）"
+                            }
+                        } catch (e: Exception) {
+                            updateState = "检查更新失败：${e.message}"
+                        } finally {
+                            checkingUpdate = false
+                        }
+                    }
+                },
+                enabled = !checkingUpdate,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (checkingUpdate) "检查中…" else "检查更新")
+            }
+            updateState?.let {
+                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
+    }
+
+    if (showUpdateDialog && updateInfo != null) {
+        UpdateAvailableDialog(info = updateInfo!!, onDismiss = { showUpdateDialog = false })
     }
 }

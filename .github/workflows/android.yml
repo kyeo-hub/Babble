@@ -1,0 +1,67 @@
+name: Android CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+
+      - name: Build debug APK
+        run: cd android && chmod +x gradlew && ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Build release APK (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cd android && ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: babble-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Generate update.json (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd android
+          VC=$(grep '^versionCode=' version.properties | cut -d= -f2)
+          VN=$(grep '^versionName=' version.properties | cut -d= -f2)
+          cp app/build/outputs/apk/release/app-release.apk babble-release.apk
+          SHA=$(sha256sum babble-release.apk | cut -d' ' -f1)
+          cat > update.json <<EOF
+          {"versionCode":${VC},"versionName":"${VN}","url":"https://github.com/${GH_REPO}/releases/latest/download/babble-release.apk","sha256":"${SHA}","notes":"Babble Android v${VN} 自动发布"}
+          EOF
+          echo "--- update.json ---"
+          cat update.json
+
+      - name: Create GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/babble-release.apk
+            android/update.json
+          generate_release_notes: true

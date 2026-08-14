@@ -6,6 +6,10 @@ import com.babble.app.data.TokenStore
 
 /** 应用级单例：API 客户端与令牌存储 */
 object App {
+    /** APP 更新清单（GitHub Releases latest 资产；fork 用户改为自己仓库地址） */
+    const val UPDATE_MANIFEST_URL =
+        "https://github.com/kyeo-hub/Babble/releases/latest/download/update.json"
+
     lateinit var api: ApiClient
         private set
     lateinit var tokenStore: TokenStore

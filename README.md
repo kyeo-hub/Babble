@@ -110,7 +110,8 @@ cd android && ./gradlew :app:assembleDebug
 功能：登录（JWT）、memo 列表（Markdown 渲染）/新建/编辑、memos 数据迁移页。
 
 - **服务器地址可配置**：登录页与「设置」页（列表右上角 ⚙）可填写后端地址（默认 `https://bb.kyeo.top`），切换服务器会清除令牌并重新登录——适合 fork 部署到自定义域名的实例；
-- **数据迁移**：列表右上角 ⬆ 进入迁移页，选择旧 memos 的 `memos.db`，APP 内置解析并调用 `/api/v1/migrate/import` 导入。
+- **数据迁移**：列表右上角 ⬆ 进入迁移页，选择旧 memos 的 `memos.db`，APP 内置解析并调用 `/api/v1/migrate/import` 导入；
+- **自动更新**：打 `v*` tag 时 CI 自动构建 release APK 并发布到 GitHub Releases（含 `update.json` 清单）；APP 启动或「设置 → 检查更新」检测新版本并下载安装（fork 用户改 `App.UPDATE_MANIFEST_URL`）。
 
 ## 项目结构
 
