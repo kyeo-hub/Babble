@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Babble — 极简笔记 · 自托管 · 开源</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <h1>📝 Babble</h1>
+    <p class="tagline">基于 Cloudflare Workers 的极简笔记服务 —— memos 复刻，自托管，跨端同步</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/kyeo-hub/Babble/releases/latest/download/babble-release.apk">⬇️ 下载 Android APP</a>
+      <a class="btn" href="https://github.com/kyeo-hub/Babble">GitHub</a>
+    </div>
+  </header>
+
+  <section class="features">
+    <h2>功能特性</h2>
+    <div class="grid">
+      <div class="card"><h3>✍️ Markdown 笔记</h3><p>列表 / 编辑 / 标签 / 置顶 / 归档，分页加载与下拉刷新。</p></div>
+      <div class="card"><h3>📎 图片与附件</h3><p>R2 存储，图片直出，随 memo 级联清理。</p></div>
+      <div class="card"><h3>🔗 公开分享</h3><p>一键生成分享短链，无鉴权访问，随时撤销。</p></div>
+      <div class="card"><h3>⚡ 实时推送</h3><p>WebSocket / SSE 双通道，断线增量补偿。</p></div>
+      <div class="card"><h3>🔐 自主账号</h3><p>服务器地址可配置，用户名 / 密码随时自助修改。</p></div>
+      <div class="card"><h3>📦 一键部署</h3><p>fork + 3 个 Secret，GitHub Actions 自动部署到 Cloudflare。</p></div>
+    </div>
+  </section>
+
+  <section class="download">
+    <h2>下载与更新</h2>
+    <p>Android APP 支持 <b>自动更新</b>：启动时检查 / 设置页手动检查，检测到新版本自动下载、校验并安装。</p>
+    <a class="btn primary" href="https://github.com/kyeo-hub/Babble/releases/latest/download/babble-release.apk">⬇️ babble-release.apk（最新版）</a>
+  </section>
+
+  <section class="docs">
+    <h2>文档导航</h2>
+    <ul>
+      <li>📖 <a href="https://github.com/kyeo-hub/Babble/blob/main/docs/usage.md">使用文档</a> —— 部署 / APP / 迁移 / API 速查 / 常见问题</li>
+      <li>📐 <a href="https://github.com/kyeo-hub/Babble/blob/main/docs/api.md">API 契约</a> —— 全部接口定义</li>
+      <li>🛠️ <a href="https://github.com/kyeo-hub/Babble">项目主页（README）</a></li>
+      <li>🔎 在线 API 文档（Swagger UI）：<a href="https://bb.kyeo.top/doc">/doc</a></li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Babble · 开源（MIT） · 自托管优先 · 数据属于你</p>
+  </footer>
+</body>
+</html>

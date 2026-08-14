@@ -14,6 +14,11 @@
 
 技术栈：**Hono + Drizzle ORM + D1 + R2 + KV + Durable Objects**，TypeScript 全栈，OpenAPI 契约驱动（`GET /openapi.json`）。
 
+## 文档
+
+- 📖 [使用文档](docs/usage.md) —— 部署 / APP / 迁移 / API 速查 / 常见问题
+- 📐 [API 契约](docs/api.md) —— 全部接口定义（线上 Swagger UI：`/doc`）
+
 ## 快速开始（本地开发）
 
 ```bash
@@ -139,9 +144,10 @@ scripts/deploy/           # 一键部署基建保障脚本
 | P2 | 资源上传（R2） | ✅ |
 | P3 | 标签 / 分享 / 搜索增强 | ✅ |
 | P4 | 实时推送（WS/SSE）+ 登录限流 | ✅ |
-| P5 | Telegram bot | ⏳ |
-| P6 | memos 数据迁移（双路径） | ✅ 工具就绪（scripts/migrate/），待真实数据迁移 |
-| P7 | Android / 小程序接入 | ⏳ |
+| P5 | 批量导入接口 + Android APP（登录/列表/编辑/迁移页/设置） | ✅ |
+| P6 | memos 数据迁移（脚本双路径 + APP 内置） | ✅ |
+| P7 | APP CI/CD 自动发布 + 自动更新 | ✅ |
+| P8 | Telegram bot | ⏳ |
 
 ## License
 
