@@ -165,6 +165,53 @@ export function authRoutes(app: OpenAPIHono<AppEnv>): void {
   });
   app.openapi(meRoute, (c) => c.json(toUserJson(c.get("user")), 200));
 
+  // PATCH /me —— 修改用户名/密码（需当前密码验证；/me 已由上方 use("/me") 覆盖鉴权）
+  const updateMeRoute = createRoute({
+    method: "patch",
+    path: "/me",
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              username: z.string().min(1).max(64).optional(),
+              currentPassword: z.string().min(1),
+              newPassword: z.string().min(8).optional(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      200: { description: "更新成功", content: { "application/json": { schema: userJsonSchema } } },
+      400: { description: "未提供任何修改", content: { "application/json": { schema: errorSchema } } },
+      401: { description: "当前密码错误或未认证", content: { "application/json": { schema: errorSchema } } },
+      409: { description: "用户名已存在", content: { "application/json": { schema: errorSchema } } },
+    },
+  });
+  app.openapi(updateMeRoute, async (c) => {
+    const body = c.req.valid("json");
+    if (body.username === undefined && body.newPassword === undefined) {
+      return c.json({ error: { code: "INVALID_ARGUMENT", message: "至少提供新用户名或新密码" } }, 400);
+    }
+    const db = createDb(c.env);
+    const user = c.get("user");
+    if (!(await verifyPassword(body.currentPassword, user.passwordHash))) {
+      return c.json({ error: { code: "UNAUTHORIZED", message: "当前密码错误" } }, 401);
+    }
+    if (body.username !== undefined && body.username !== user.username) {
+      const exists = await db.select().from(users).where(eq(users.username, body.username)).get();
+      if (exists) {
+        return c.json({ error: { code: "CONFLICT", message: "用户名已存在" } }, 409);
+      }
+    }
+    const updates: Partial<typeof users.$inferInsert> = { updatedAt: Math.floor(Date.now() / 1000) };
+    if (body.username !== undefined) updates.username = body.username;
+    if (body.newPassword !== undefined) updates.passwordHash = await createPasswordHash(body.newPassword);
+    const row = await db.update(users).set(updates).where(eq(users.id, user.id)).returning().get();
+    return c.json(toUserJson(row), 200);
+  });
+
   // tokens 相关路由共用认证中间件
   app.use("/auth/tokens", authMiddleware);
   app.use("/auth/tokens/*", authMiddleware);
