@@ -31,9 +31,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.babble.app.App
 import com.babble.app.BuildConfig
+import com.babble.app.data.ReportIssueRequest
 import com.babble.app.data.UpdateChecker
 import com.babble.app.data.UpdateInfo
 import com.babble.app.data.UpdateMeRequest
+import com.babble.app.data.friendlyMessage
 import kotlinx.coroutines.launch
 
 /** 设置页：服务器地址 + 修改账号（用户名 / 密码） */
@@ -59,6 +61,12 @@ fun SettingsScreen(
     var updateState by remember { mutableStateOf<String?>(null) }
     var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
     var showUpdateDialog by remember { mutableStateOf(false) }
+
+    // 反馈 / 报告问题
+    var reportText by remember { mutableStateOf("") }
+    var reporting by remember { mutableStateOf(false) }
+    var reportResult by remember { mutableStateOf<String?>(null) }
+    var reportError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     // 加载当前用户名（GET /me，仅用于展示）
@@ -216,6 +224,65 @@ fun SettingsScreen(
             }
             updateState?.let {
                 Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+            Text("反馈 / 报告问题", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = reportText,
+                onValueChange = { reportText = it },
+                label = { Text("问题描述（必填，会自动附带版本与服务器信息）") },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = {
+                    val desc = reportText.trim()
+                    if (desc.isEmpty()) {
+                        reportError = "请填写问题描述"
+                        return@Button
+                    }
+                    reporting = true
+                    reportResult = null
+                    reportError = null
+                    scope.launch {
+                        try {
+                            val body = buildString {
+                                appendLine("## 问题描述")
+                                appendLine(desc)
+                                appendLine()
+                                appendLine("## 环境信息")
+                                appendLine("- APP 版本：${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）")
+                                appendLine("- 服务器地址：${App.tokenStore.serverUrl}")
+                                appendLine("- 设备时间：${System.currentTimeMillis()}")
+                            }
+                            val resp = App.api.api.reportIssue(
+                                ReportIssueRequest(
+                                    title = "[APP 反馈] ${desc.take(40)}",
+                                    body = body,
+                                ),
+                            )
+                            reportResult = "已提交 Issue #${resp.number}：${resp.url}"
+                        } catch (e: Exception) {
+                            reportError = "上报失败：${e.friendlyMessage()}"
+                        } finally {
+                            reporting = false
+                        }
+                    }
+                },
+                enabled = !reporting,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (reporting) "提交中…" else "报告问题")
+            }
+            reportResult?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(it, color = MaterialTheme.colorScheme.primary)
+            }
+            reportError?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(it, color = MaterialTheme.colorScheme.error)
             }
         }
     }

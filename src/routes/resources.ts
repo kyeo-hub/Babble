@@ -8,6 +8,34 @@ import { genUid } from "../lib/uid";
 
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB
 
+/** 按魔数嗅探真实 MIME 类型（避免空/错误 Content-Type 导致资源无法预览） */
+function sniffMime(head: Uint8Array): string | null {
+  if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return "image/jpeg";
+  if (head.length >= 4 && head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47)
+    return "image/png";
+  if (head.length >= 3 && head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46) return "image/gif";
+  if (
+    head.length >= 12 &&
+    head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46 &&
+    head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50
+  )
+    return "image/webp"; // RIFF....WEBP
+  if (head.length >= 4 && head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46)
+    return "application/pdf";
+  if (head.length >= 4 && head[0] === 0x4f && head[1] === 0x67 && head[2] === 0x67 && head[3] === 0x53)
+    return "audio/ogg";
+  return null;
+}
+
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/gif": ".gif",
+  "image/webp": ".webp",
+  "application/pdf": ".pdf",
+  "audio/ogg": ".ogg",
+};
+
 const errorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });
@@ -82,7 +110,13 @@ export function resourcesRoutes(app: OpenAPIHono<AppEnv>): void {
     }
 
     const uid = genUid();
-    const type = file.type || "application/octet-stream";
+    // 按魔数嗅探真实 MIME；文件名缺少扩展名时按类型补全（补迁/上传通用）
+    const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    const type = sniffMime(head) ?? (file.type || "application/octet-stream");
+    let name = file.name || "file";
+    if (!/\.[A-Za-z0-9]+$/.test(name) && MIME_EXT[type]) {
+      name += MIME_EXT[type];
+    }
     await c.env.ASSETS.put(uid, file.stream(), { httpMetadata: { contentType: type } });
     const now = Math.floor(Date.now() / 1000);
     const row = await db
@@ -91,7 +125,7 @@ export function resourcesRoutes(app: OpenAPIHono<AppEnv>): void {
         uid,
         memoId,
         creatorId: userId,
-        name: file.name || "file",
+        name,
         type,
         size: file.size,
         storageKey: uid,

@@ -40,6 +40,7 @@ import com.babble.app.data.MemosDbParser
 import com.babble.app.data.ParsedImport
 import com.babble.app.data.SkippedResource
 import com.babble.app.data.UpdateMemoRequest
+import com.babble.app.data.friendlyMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
@@ -135,13 +136,13 @@ fun MigrateScreen(onBack: () -> Unit) {
                     } catch (e: Exception) {
                         // 单个资源失败不中断整个补迁
                         failed++
-                        backfillError = "资源 #${r.srcId}（${r.name}）失败：${e.message}"
+                        backfillError = "资源 #${r.srcId}（${r.name}）失败：${e.friendlyMessage()}"
                     }
                 }
                 backfillProgress = null
                 backfillReport = BackfillReport(total, succeeded, skipped, failed)
             } catch (e: Exception) {
-                backfillError = "补迁失败：${e.message}"
+                backfillError = "补迁失败：${e.friendlyMessage()}"
             } finally {
                 backfilling = false
             }
@@ -214,7 +215,7 @@ fun MigrateScreen(onBack: () -> Unit) {
                             try {
                                 report = App.api.api.importMemos(p.payload)
                             } catch (e: Exception) {
-                                error = e.message ?: "导入失败"
+                                error = e.friendlyMessage()
                             } finally {
                                 importing = false
                             }
@@ -279,6 +280,13 @@ fun MigrateScreen(onBack: () -> Unit) {
                         Text("导入完成 ✅", style = MaterialTheme.typography.titleMedium)
                         Text("memo：${r.importedMemos} 条")
                         Text("资源：${r.importedResources} 个（跳过 ${r.skippedResources}）")
+                        if (r.importedMemos == 0) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "memo 均已导入过（本次 0 条新增），可直接使用下方的补迁功能。",
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                 }
             }

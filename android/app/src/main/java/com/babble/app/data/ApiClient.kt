@@ -1,6 +1,9 @@
 package com.babble.app.data
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.parseToJsonElement
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -8,6 +11,23 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
+
+/** 提取后端 JSON 错误消息（如 {error:{message}}），回退到原始异常信息 */
+fun Throwable.friendlyMessage(): String {
+    val fromBody = (this as? retrofit2.HttpException)?.let { http ->
+        try {
+            val body = http.response()?.errorBody()?.string()
+            if (!body.isNullOrBlank()) {
+                Json { ignoreUnknownKeys = true }
+                    .parseToJsonElement(body)
+                    .jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
+            } else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+    return fromBody ?: (message ?: "未知错误")
+}
 
 /** 后端 API 客户端：JWT 注入 + 日志 + Retrofit 封装 */
 class ApiClient(private val tokenStore: TokenStore, baseUrl: String) {

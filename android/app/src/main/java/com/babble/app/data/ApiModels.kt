@@ -125,3 +125,17 @@ data class BackfillReport(
     val skipped: Int,
     val failed: Int,
 )
+
+// ---------- 问题上报（POST /api/v1/report-issue） ----------
+
+@Serializable
+data class ReportIssueRequest(
+    val title: String,
+    val body: String,
+)
+
+@Serializable
+data class ReportIssueResponse(
+    val number: Int,
+    val url: String,
+)

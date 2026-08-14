@@ -61,4 +61,8 @@ interface ApiService {
         @Part file: MultipartBody.Part,
         @Part memoId: MultipartBody.Part?,
     ): Resource
+
+    /** 上报问题 → 仓库 GitHub Issue */
+    @POST("api/v1/report-issue")
+    suspend fun reportIssue(@Body request: ReportIssueRequest): ReportIssueResponse
 }

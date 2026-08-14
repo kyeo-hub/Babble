@@ -7,8 +7,18 @@ import { tagsRoutes } from "./routes/tags";
 import { shareRoutes } from "./routes/share";
 import { realtimeRoutes } from "./routes/realtime";
 import { importRoutes } from "./routes/importer";
+import { reportRoutes } from "./routes/report";
 
 const app = new OpenAPIHono<AppEnv>();
+
+/** 全局兜底：任何未处理异常都返回 JSON 错误（不裸 500），消息对用户友好 */
+app.onError((err, c) => {
+  console.error("unhandled error:", err);
+  return c.json(
+    { error: { code: "INTERNAL", message: "服务器内部错误，请稍后重试；若持续出现可报告问题" } },
+    500,
+  );
+});
 
 /** 健康检查 */
 app.get("/api/v1/health", (c) => {
@@ -29,6 +39,7 @@ tagsRoutes(api);
 shareRoutes(api, app); // POST share 挂 /api/v1（走认证），公开 /p/:code 挂主应用
 realtimeRoutes(api); // /api/v1/ws + /api/v1/events
 importRoutes(api); // /api/v1/migrate/import
+reportRoutes(api); // /api/v1/report-issue（APP 错误上报 → GitHub Issue）
 app.route("/api/v1", api);
 
 // OpenAPI 契约：GET /openapi.json + GET /doc（Swagger UI）

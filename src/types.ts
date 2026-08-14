@@ -13,6 +13,10 @@ export type Env = {
   SEED_ADMIN_PASSWORD?: string;
   /** JWT 签名密钥（必填，缺失时认证接口返回 503） */
   JWT_SECRET: string;
+  /** Issue 上报：目标仓库（默认 kyeo-hub/Babble；fork 用户改自己的仓库） */
+  GITHUB_REPO?: string;
+  /** Issue 上报：GitHub PAT（Issues:write，走 wrangler secret put） */
+  GITHUB_ISSUE_TOKEN?: string;
 }
 
 /** 统一响应结构 */
