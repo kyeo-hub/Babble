@@ -107,3 +107,12 @@ data class ImportReport(
     @SerialName("importedResources") val importedResources: Int,
     @SerialName("skippedResources") val skippedResources: Int,
 )
+
+// ---------- 修改账号（PATCH /api/v1/me） ----------
+
+@Serializable
+data class UpdateMeRequest(
+    val username: String? = null,
+    @SerialName("currentPassword") val currentPassword: String,
+    @SerialName("newPassword") val newPassword: String? = null,
+)

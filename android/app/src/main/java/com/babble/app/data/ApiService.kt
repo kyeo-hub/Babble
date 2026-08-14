@@ -47,4 +47,7 @@ interface ApiService {
 
     @POST("api/v1/migrate/import")
     suspend fun importMemos(@Body payload: ImportPayload): ImportReport
+
+    @PATCH("api/v1/me")
+    suspend fun updateMe(@Body request: UpdateMeRequest): User
 }

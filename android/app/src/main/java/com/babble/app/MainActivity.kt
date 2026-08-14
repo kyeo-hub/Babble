@@ -70,6 +70,11 @@ class MainActivity : ComponentActivity() {
                                     loggedIn = false
                                     screen = Screen.MemoList
                                 },
+                                onAccountUpdated = {
+                                    App.tokenStore.clear()
+                                    loggedIn = false
+                                    screen = Screen.MemoList
+                                },
                                 onBack = { screen = Screen.MemoList },
                             )
                         }
