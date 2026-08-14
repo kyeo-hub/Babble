@@ -59,7 +59,9 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 export function importRoutes(app: OpenAPIHono<AppEnv>): void {
+  // use("/migrate") 只匹配精确路径，必须同时注册 "/migrate/*" 才能覆盖 /migrate/import
   app.use("/migrate", authMiddleware);
+  app.use("/migrate/*", authMiddleware);
 
   // POST /migrate/import —— 批量导入 memos（含资源 base64 → R2）
   const importRoute = createRoute({
