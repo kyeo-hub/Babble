@@ -12,6 +12,9 @@ import java.util.concurrent.TimeUnit
 /** 后端 API 客户端：JWT 注入 + 日志 + Retrofit 封装 */
 class ApiClient(private val tokenStore: TokenStore, baseUrl: String) {
 
+    /** 收到 401 时回调（用于自动登出） */
+    var onUnauthorized: (() -> Unit)? = null
+
     private val json = Json { ignoreUnknownKeys = true }
 
     private val authInterceptor = Interceptor { chain ->
@@ -21,7 +24,9 @@ class ApiClient(private val tokenStore: TokenStore, baseUrl: String) {
                 if (!token.isNullOrBlank()) header("Authorization", "Bearer $token")
             }
             .build()
-        chain.proceed(request)
+        val response = chain.proceed(request)
+        if (response.code == 401) onUnauthorized?.invoke()
+        response
     }
 
     private val okHttp = OkHttpClient.Builder()

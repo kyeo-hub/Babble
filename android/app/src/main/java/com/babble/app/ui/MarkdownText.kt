@@ -8,7 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import io.noties.markwon.Markwon
 
-/** Markwon 渲染 Markdown（AndroidView 托管 TextView） */
+/** Markwon 渲染 Markdown（图片的鉴权加载暂延后，见任务清单） */
 @Composable
 fun MarkdownText(markdown: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current

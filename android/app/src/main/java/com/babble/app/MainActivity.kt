@@ -31,15 +31,22 @@ sealed interface Screen {
 }
 
 class MainActivity : ComponentActivity() {
+    private var loggedIn by mutableStateOf(false)
+    private var screen by mutableStateOf<Screen>(Screen.MemoList)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         App.init(this)
+        loggedIn = App.tokenStore.accessToken != null
+        // 401 自动登出
+        App.api.onUnauthorized = {
+            App.tokenStore.clear()
+            loggedIn = false
+            screen = Screen.MemoList
+        }
         setContent {
             MaterialTheme {
-                var loggedIn by remember { mutableStateOf(App.tokenStore.accessToken != null) }
-                var screen by remember { mutableStateOf<Screen>(Screen.MemoList) }
-
-                // 启动自动检查更新（GitHub Releases update.json）
+                // 启动自动检查更新
                 var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
                 LaunchedEffect(Unit) {
                     val info = UpdateChecker.check(App.UPDATE_MANIFEST_URL)
@@ -52,7 +59,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (!loggedIn) {
-                    LoginScreen(onLoginSuccess = { loggedIn = true })
+                    LoginScreen(onLoginSuccess = { loggedIn = true; screen = Screen.MemoList })
                 } else {
                     BackHandler(enabled = screen is Screen.MemoEdit || screen is Screen.Migrate || screen is Screen.Settings) {
                         screen = Screen.MemoList
