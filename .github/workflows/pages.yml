@@ -8,6 +8,9 @@ on:
 
 permissions:
   contents: read
+  # pages-action 需用 GitHub token 创建 deployment 记录
+  deployments: write
+  statuses: write
 
 jobs:
   deploy:
