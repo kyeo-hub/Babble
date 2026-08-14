@@ -63,6 +63,7 @@ fun MigrateScreen(onBack: () -> Unit) {
     var oldBase by remember { mutableStateOf("") }
     var oldToken by remember { mutableStateOf("") }
     var backfilling by remember { mutableStateOf(false) }
+    var backfillProgress by remember { mutableStateOf<String?>(null) }
     var backfillReport by remember { mutableStateOf<BackfillReport?>(null) }
     var backfillError by remember { mutableStateOf<String?>(null) }
 
@@ -70,8 +71,8 @@ fun MigrateScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val oldClient = remember {
         OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
             .build()
     }
 
@@ -100,36 +101,45 @@ fun MigrateScreen(onBack: () -> Unit) {
                 var succeeded = 0
                 var skipped = 0
                 var failed = 0
-                for (r in p.skippedResourceList) {
-                    val oldUid = r.srcMemoId?.let { p.memoUidMap[it] }
-                    val newMemoId = oldUid?.let { newMemoIdByUid[it] }
-                    if (newMemoId == null) {
-                        skipped++
-                        continue
-                    }
-                    // 2. 从旧站下载（多端点尝试，带旧站 Bearer）
-                    val bytes = downloadFromOld(oldClient, base, token, r)
-                    if (bytes == null || bytes.isEmpty()) {
+                val total = p.skippedResourceList.size
+                for ((idx, r) in p.skippedResourceList.withIndex()) {
+                    backfillProgress = "补迁中…（${idx + 1}/$total）"
+                    try {
+                        val oldUid = r.srcMemoId?.let { p.memoUidMap[it] }
+                        val newMemoId = oldUid?.let { newMemoIdByUid[it] }
+                        if (newMemoId == null) {
+                            skipped++
+                            continue
+                        }
+                        // 2. 从旧站下载（多端点尝试，带旧站 Bearer）
+                        val bytes = downloadFromOld(oldClient, base, token, r)
+                        if (bytes == null || bytes.isEmpty()) {
+                            failed++
+                            continue
+                        }
+                        // 3. 上传新站（multipart：file + memoId）
+                        val filePart = MultipartBody.Part.createFormData(
+                            "file",
+                            r.name,
+                            bytes.toRequestBody(r.type.ifBlank { "application/octet-stream" }.toMediaType()),
+                        )
+                        val memoPart = MultipartBody.Part.createFormData("memoId", newMemoId.toString())
+                        val uploaded = App.api.api.uploadResource(filePart, memoPart)
+                        // 4. 重写 memo 内容里的旧引用 → 新资源路径
+                        val memo = App.api.api.getMemo(newMemoId)
+                        val newContent = rewriteContent(memo.content, base, r.uid.orEmpty(), uploaded.url)
+                        if (newContent != memo.content) {
+                            App.api.api.updateMemo(newMemoId, UpdateMemoRequest(content = newContent))
+                        }
+                        succeeded++
+                    } catch (e: Exception) {
+                        // 单个资源失败不中断整个补迁
                         failed++
-                        continue
+                        backfillError = "资源 #${r.srcId}（${r.name}）失败：${e.message}"
                     }
-                    // 3. 上传新站（multipart：file + memoId）
-                    val filePart = MultipartBody.Part.createFormData(
-                        "file",
-                        r.name,
-                        bytes.toRequestBody(r.type.ifBlank { "application/octet-stream" }.toMediaType()),
-                    )
-                    val memoPart = MultipartBody.Part.createFormData("memoId", newMemoId.toString())
-                    val uploaded = App.api.api.uploadResource(filePart, memoPart)
-                    // 4. 重写 memo 内容里的旧引用 → 新资源路径
-                    val memo = App.api.api.getMemo(newMemoId)
-                    val newContent = rewriteContent(memo.content, base, r.uid.orEmpty(), uploaded.url)
-                    if (newContent != memo.content) {
-                        App.api.api.updateMemo(newMemoId, UpdateMemoRequest(content = newContent))
-                    }
-                    succeeded++
                 }
-                backfillReport = BackfillReport(p.skippedResourceList.size, succeeded, skipped, failed)
+                backfillProgress = null
+                backfillReport = BackfillReport(total, succeeded, skipped, failed)
             } catch (e: Exception) {
                 backfillError = "补迁失败：${e.message}"
             } finally {
@@ -246,7 +256,11 @@ fun MigrateScreen(onBack: () -> Unit) {
                         enabled = !backfilling,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(if (backfilling) "补迁中…" else "开始补迁")
+                        Text(if (backfilling) (backfillProgress ?: "补迁中…") else "开始补迁")
+                    }
+                    backfillProgress?.let {
+                        Spacer(Modifier.height(4.dp))
+                        Text(it, style = MaterialTheme.typography.bodyMedium)
                     }
                     backfillReport?.let { r ->
                         Spacer(Modifier.height(8.dp))

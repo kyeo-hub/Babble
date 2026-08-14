@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { AppEnv } from "./auth";
 import { authMiddleware } from "../lib/auth";
@@ -113,9 +113,27 @@ export function importRoutes(app: OpenAPIHono<AppEnv>): void {
     const memoIdByIndex: number[] = [];
 
     const stmts: BatchItem<"sqlite">[] = [];
+    // 幂等：已存在（按 uid）的 memo 直接跳过，避免重复导入触发唯一约束 500
+    const existingUids = new Set<string>();
+    {
+      const uids = body.memos
+        .map((m: { uid?: string }) => m.uid)
+        .filter((u: string | undefined): u is string => !!u);
+      if (uids.length > 0) {
+        const rows = await db.select({ uid: memos.uid }).from(memos).where(inArray(memos.uid, uids)).all();
+        for (const r of rows) existingUids.add(r.uid);
+      }
+    }
+
+    let importedMemoCount = 0;
     for (const m of body.memos) {
+      if (m.uid && existingUids.has(m.uid)) {
+        memoIdByIndex.push(-1); // 已存在：memoId 置空，避免孤儿引用
+        continue;
+      }
       const id = nextId++;
       memoIdByIndex.push(id);
+      importedMemoCount += 1;
       const ts = Math.floor(m.createdTs);
       stmts.push(
         db.insert(memos).values({
@@ -136,7 +154,8 @@ export function importRoutes(app: OpenAPIHono<AppEnv>): void {
     let skippedResources = 0;
     for (const r of body.resources) {
       const uid = r.uid ?? genUid();
-      const memoId = r.memoIndex != null ? memoIdByIndex[r.memoIndex] : null;
+      const memoId =
+        r.memoIndex != null && memoIdByIndex[r.memoIndex] >= 0 ? memoIdByIndex[r.memoIndex] : null;
       let bytes: Uint8Array | null = null;
       if (r.dataBase64) {
         bytes = base64ToBytes(r.dataBase64);
@@ -147,17 +166,19 @@ export function importRoutes(app: OpenAPIHono<AppEnv>): void {
         continue;
       }
       stmts.push(
-        db.insert(resourcesTable).values({
-          id: nextId++,
-          uid,
-          memoId,
-          creatorId: userId,
-          name: r.name,
-          type: r.type,
-          size: r.size ?? bytes.length,
-          storageKey: uid,
-          createdAt: now,
-        }),
+        db.insert(resourcesTable)
+          .values({
+            id: nextId++,
+            uid,
+            memoId,
+            creatorId: userId,
+            name: r.name,
+            type: r.type,
+            size: r.size ?? bytes.length,
+            storageKey: uid,
+            createdAt: now,
+          })
+          .onConflictDoNothing(), // 资源 uid 重复时跳过（重导幂等）
       );
       importedResources += 1;
     }
@@ -172,7 +193,7 @@ export function importRoutes(app: OpenAPIHono<AppEnv>): void {
     return c.json(
       {
         batchId: body.batchId ?? null,
-        importedMemos: body.memos.length,
+        importedMemos: importedMemoCount,
         importedResources,
         skippedResources,
       },
