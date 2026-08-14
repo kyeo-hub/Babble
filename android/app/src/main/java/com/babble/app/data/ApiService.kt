@@ -1,11 +1,14 @@
 package com.babble.app.data
 
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -50,4 +53,12 @@ interface ApiService {
 
     @PATCH("api/v1/me")
     suspend fun updateMe(@Body request: UpdateMeRequest): User
+
+    /** 上传资源（multipart：file 字段 + 可选 memoId），返回新资源（含 id/url） */
+    @Multipart
+    @POST("api/v1/resources/upload")
+    suspend fun uploadResource(
+        @Part file: MultipartBody.Part,
+        @Part memoId: MultipartBody.Part?,
+    ): Resource
 }

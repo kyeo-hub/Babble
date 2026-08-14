@@ -116,3 +116,12 @@ data class UpdateMeRequest(
     @SerialName("currentPassword") val currentPassword: String,
     @SerialName("newPassword") val newPassword: String? = null,
 )
+
+// ---------- APP 内补迁报告（UI 展示用，非 API 模型） ----------
+
+data class BackfillReport(
+    val total: Int,
+    val succeeded: Int,
+    val skipped: Int,
+    val failed: Int,
+)

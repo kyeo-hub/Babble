@@ -5,10 +5,24 @@ import android.util.Base64
 import java.io.File
 import kotlin.math.floor
 
-/** 解析结果：导入负载 + 被跳过（外部存储）的资源数 */
+/** 被跳过的外部存储资源记录（无本地 blob，需从旧站 API 补迁） */
+data class SkippedResource(
+    val srcId: Long,
+    val srcMemoId: Long?,
+    val uid: String?,
+    val name: String,
+    val type: String,
+    val size: Long,
+)
+
+/** 解析结果：导入负载 + 补迁所需信息 */
 data class ParsedImport(
     val payload: ImportPayload,
     val skippedResources: Int,
+    /** 补迁用：被跳过（无 blob）的资源记录 */
+    val skippedResourceList: List<SkippedResource>,
+    /** 补迁用：旧 memoId → 旧 uid 映射（srcMemoId 桥接） */
+    val memoUidMap: Map<Long, String>,
 )
 
 /**
@@ -40,6 +54,7 @@ object MemosDbParser {
         // memos
         val memos = mutableListOf<ImportMemo>()
         val memoIdToIndex = HashMap<Long, Int>()
+        val memoUidMap = HashMap<Long, String>()
         db.rawQuery("SELECT * FROM memo ORDER BY id", null).use { c ->
             val idIdx = c.getColumnIndexOrThrow("id")
             val contentIdx = c.getColumnIndexOrThrow("content")
@@ -53,9 +68,11 @@ object MemosDbParser {
             while (c.moveToNext()) {
                 val id = c.getLong(idIdx)
                 memoIdToIndex[id] = memos.size
+                val memoUid = if (uidIdx >= 0) c.getString(uidIdx) else null
+                if (memoUid != null) memoUidMap[id] = memoUid
                 memos.add(
                     ImportMemo(
-                        uid = if (uidIdx >= 0) c.getString(uidIdx) else null,
+                        uid = memoUid,
                         content = c.getString(contentIdx) ?: "",
                         visibility = if (visIdx >= 0) (c.getString(visIdx) ?: "private").lowercase() else "private",
                         pinned = if (pinnedIdx >= 0 && c.getInt(pinnedIdx) == 1) 1 else 0,
@@ -67,8 +84,9 @@ object MemosDbParser {
             }
         }
 
-        // resources（仅本地 blob）
+        // resources（仅本地 blob；无 blob 的记录进 skippedResourceList 供补迁）
         val resources = mutableListOf<ImportResource>()
+        val skippedResourceList = mutableListOf<SkippedResource>()
         var skipped = 0
         if (hasTable("resource") && resCols.contains("blob")) {
             db.rawQuery("SELECT * FROM resource", null).use { c ->
@@ -81,12 +99,23 @@ object MemosDbParser {
                 val blobIdx = c.getColumnIndexOrThrow("blob")
 
                 while (c.moveToNext()) {
+                    val memoId = if (memoIdx >= 0 && !c.isNull(memoIdx)) c.getLong(memoIdx) else null
                     val blob = c.getBlob(blobIdx)
                     if (blob == null || blob.isEmpty()) {
                         skipped++
+                        skippedResourceList.add(
+                            SkippedResource(
+                                srcId = c.getLong(idIdx),
+                                srcMemoId = memoId,
+                                uid = if (uidIdx >= 0) c.getString(uidIdx) else null,
+                                name = if (nameIdx >= 0) (c.getString(nameIdx) ?: "resource") else "resource",
+                                type = if (typeIdx >= 0) (c.getString(typeIdx) ?: "application/octet-stream")
+                                else "application/octet-stream",
+                                size = if (sizeIdx >= 0) c.getLong(sizeIdx) else 0,
+                            ),
+                        )
                         continue
                     }
-                    val memoId = if (memoIdx >= 0 && !c.isNull(memoIdx)) c.getLong(memoIdx) else null
                     resources.add(
                         ImportResource(
                             memoIndex = memoId?.let { memoIdToIndex[it] },
@@ -110,6 +139,8 @@ object MemosDbParser {
                 resources = resources,
             ),
             skippedResources = skipped,
+            skippedResourceList = skippedResourceList,
+            memoUidMap = memoUidMap,
         )
     }
 
