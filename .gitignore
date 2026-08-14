@@ -12,5 +12,6 @@ android/build/
 android/app/build/
 android/local.properties
 babble-debug.apk
+memos_prod.db
 *.log
 .DS_Store
