@@ -87,6 +87,39 @@ curl -X PATCH https://你的域名/api/v1/me \
 
 适用于服务端/无头场景，见 [README 迁移章节](../README.md#memos-数据迁移双路径)：`scripts/migrate/` 支持 **SQLite 直转**（读 memos.db）与 **API 拉取**（旧站 token）两种提取方式，导入 D1 并上传 R2，附一致性报告。
 
+### 外部存储资源补迁
+
+当直转/APP 迁移有资源被跳过（无本地 blob，存于磁盘或 S3）时，用补迁工具从旧站 API 提取并增量导入：
+
+1. 在旧 memos「设置 → API」生成 token（建议先轮换），提取全部资源（含外部存储）：
+
+   ```bash
+   node scripts/migrate/extract-api.mjs --url https://memos.kyeo.top --token <新token> --resources-only
+   # 输出：scripts/migrate/out/backfill-resources.json + out/resources/
+   ```
+
+2. 导出新站 uid→id 映射（每行 `id,uid`，保存为 `out/memos-ids.csv`）：
+
+   ```bash
+   npx wrangler d1 execute babble --remote --command="SELECT id, uid FROM memos"
+   ```
+
+3. 生成增量导入 SQL 与 R2 上传脚本：
+
+   ```bash
+   node scripts/migrate/import-resources.mjs --memos out/memos-ids.csv --old-base https://memos.kyeo.top
+   # 输出：out/backfill.sql + out/backfill-r2.sh
+   ```
+
+4. 应用（需 Cloudflare 凭据）：
+
+   ```bash
+   wrangler d1 execute babble --remote --file=scripts/migrate/out/backfill.sql
+   bash scripts/migrate/out/backfill-r2.sh
+   ```
+
+说明：`INSERT OR IGNORE` 按资源 uid 幂等去重；脚本同时把 memo 内容里的旧图片引用（`/o/r/<uid>`、`/file/<uid>` 及旧站完整 URL）重写为 `/api/v1/resources/<新id>/file`，图片在新站/APP 即可显示。
+
 ## 5. API 速查
 
 ```bash

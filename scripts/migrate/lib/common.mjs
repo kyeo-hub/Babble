@@ -24,6 +24,7 @@ import { fileURLToPath } from "node:url";
 export const MIGRATE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const OUT_DIR = join(MIGRATE_DIR, "out");
 export const EXPORT_JSON = join(OUT_DIR, "export.json");
+export const BACKFILL_JSON = join(OUT_DIR, "backfill-resources.json");
 export const RESOURCES_DIR = join(OUT_DIR, "resources");
 
 /** 时间戳归一化：ms（>1e12）→ 秒；非法值回退当前时间 */

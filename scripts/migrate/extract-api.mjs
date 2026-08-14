@@ -9,15 +9,17 @@
  */
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ensureOutDir, normalizeTs, writeJson, EXPORT_JSON, RESOURCES_DIR } from "./lib/common.mjs";
+import { ensureOutDir, normalizeTs, writeJson, EXPORT_JSON, BACKFILL_JSON, RESOURCES_DIR } from "./lib/common.mjs";
 
 const args = process.argv.slice(2);
 const urlArg = args[args.indexOf("--url") + 1];
 const tokenArg = args[args.indexOf("--token") + 1];
+const resourcesOnly = args.includes("--resources-only");
 if (!urlArg || !tokenArg) {
-  console.error("用法: node scripts/migrate/extract-api.mjs --url <memos 地址> --token <memos API token>");
+  console.error("用法: node scripts/migrate/extract-api.mjs --url <memos 地址> --token <memos API token> [--resources-only]");
   process.exit(1);
 }
+if (resourcesOnly) console.log("模式：仅提取资源（含外部存储，用于补迁）");
 const base = urlArg.replace(/\/+$/, "");
 
 async function apiGet(path) {
@@ -63,20 +65,26 @@ async function downloadResource(id, uid) {
 }
 
 const outMemos = [];
+const memosMap = [];
 const resources = [];
 let resSeq = 0;
 for (const m of memos) {
-  const visibility = String(m.visibility ?? "PRIVATE").toLowerCase();
-  outMemos.push({
-    srcId: Number(m.id),
-    uid: String(m.uid ?? `api_${m.id}`),
-    content: String(m.content ?? ""),
-    visibility: ["public", "protected", "private"].includes(visibility) ? visibility : "private",
-    pinned: m.pinned ? 1 : 0,
-    rowStatus: String(m.rowStatus ?? "NORMAL").toLowerCase(),
-    createdTs: normalizeTs(m.createdTs),
-    updatedTs: normalizeTs(m.updatedTs),
-  });
+  const srcId = Number(m.id);
+  const uid = String(m.uid ?? `api_${srcId}`);
+  memosMap.push({ srcId, uid });
+  if (!resourcesOnly) {
+    const visibility = String(m.visibility ?? "PRIVATE").toLowerCase();
+    outMemos.push({
+      srcId,
+      uid,
+      content: String(m.content ?? ""),
+      visibility: ["public", "protected", "private"].includes(visibility) ? visibility : "private",
+      pinned: m.pinned ? 1 : 0,
+      rowStatus: String(m.rowStatus ?? "NORMAL").toLowerCase(),
+      createdTs: normalizeTs(m.createdTs),
+      updatedTs: normalizeTs(m.updatedTs),
+    });
+  }
 
   for (const r of m.resourceList ?? []) {
     resSeq += 1;
@@ -100,16 +108,29 @@ for (const m of memos) {
   }
 }
 
-const exportData = {
-  source: {
-    tool: "api",
-    url: base,
-    exportedAt: Math.floor(Date.now() / 1000),
-    memoCount: outMemos.length,
-    resourceCount: resources.length,
-  },
-  memos: outMemos,
-  resources,
-};
-writeJson(EXPORT_JSON, exportData);
-console.log(`完成：${outMemos.length} 条 memo、${resources.length} 个资源 → ${EXPORT_JSON}`);
+if (resourcesOnly) {
+  writeJson(BACKFILL_JSON, {
+    source: {
+      tool: "api",
+      url: base,
+      exportedAt: Math.floor(Date.now() / 1000),
+      resourceCount: resources.length,
+    },
+    memosMap,
+    resources,
+  });
+  console.log(`资源提取完成：${resources.length} 个资源（含外部存储）→ ${BACKFILL_JSON}`);
+} else {
+  writeJson(EXPORT_JSON, {
+    source: {
+      tool: "api",
+      url: base,
+      exportedAt: Math.floor(Date.now() / 1000),
+      memoCount: outMemos.length,
+      resourceCount: resources.length,
+    },
+    memos: outMemos,
+    resources,
+  });
+  console.log(`完成：${outMemos.length} 条 memo、${resources.length} 个资源 → ${EXPORT_JSON}`);
+}
