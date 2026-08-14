@@ -18,8 +18,8 @@ const reportOkSchema = z.object({
 
 /**
  * APP 错误上报：POST /api/v1/report-issue → 创建 GitHub Issue。
- * 需要部署时配置 GITHUB_REPO（Variable，默认 kyeo-hub/Babble）与
- * GITHUB_ISSUE_TOKEN（Secret，Issues:write 的 PAT）。
+ * 需要部署时配置 REPORT_REPO（Variable，默认 kyeo-hub/Babble）与
+ * REPORT_ISSUE_TOKEN（Secret，Issues:write 的 PAT）。
  */
 export function reportRoutes(app: OpenAPIHono<AppEnv>): void {
   app.use("/report-issue", authMiddleware);
@@ -36,17 +36,17 @@ export function reportRoutes(app: OpenAPIHono<AppEnv>): void {
       201: { description: "已创建 Issue", content: { "application/json": { schema: reportOkSchema } } },
       400: { description: "输入校验失败", content: { "application/json": { schema: errorSchema } } },
       401: { description: "未认证", content: { "application/json": { schema: errorSchema } } },
-      501: { description: "未配置 GITHUB_ISSUE_TOKEN", content: { "application/json": { schema: errorSchema } } },
+      501: { description: "未配置 REPORT_ISSUE_TOKEN", content: { "application/json": { schema: errorSchema } } },
       502: { description: "GitHub API 调用失败", content: { "application/json": { schema: errorSchema } } },
     },
   });
   app.openapi(reportRoute, async (c) => {
     const body = c.req.valid("json");
-    const repo = c.env.GITHUB_REPO || "kyeo-hub/Babble";
-    const token = c.env.GITHUB_ISSUE_TOKEN;
+    const repo = c.env.REPORT_REPO || "kyeo-hub/Babble";
+    const token = c.env.REPORT_ISSUE_TOKEN;
     if (!token) {
       return c.json(
-        { error: { code: "NOT_CONFIGURED", message: "服务未配置 GITHUB_ISSUE_TOKEN，无法自动上报" } },
+        { error: { code: "NOT_CONFIGURED", message: "服务未配置 REPORT_ISSUE_TOKEN，无法自动上报" } },
         501,
       );
     }

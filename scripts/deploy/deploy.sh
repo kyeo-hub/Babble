@@ -31,8 +31,8 @@ if [ -n "${JWT_SECRET:-}" ]; then
   printf '%s' "$JWT_SECRET" | "$WRANGLER" secret put JWT_SECRET --config wrangler.deploy.jsonc
 fi
 
-if [ -n "${GITHUB_ISSUE_TOKEN:-}" ]; then
-  printf '%s' "$GITHUB_ISSUE_TOKEN" | "$WRANGLER" secret put GITHUB_ISSUE_TOKEN --config wrangler.deploy.jsonc
+if [ -n "${REPORT_ISSUE_TOKEN:-}" ]; then
+  printf '%s' "$REPORT_ISSUE_TOKEN" | "$WRANGLER" secret put REPORT_ISSUE_TOKEN --config wrangler.deploy.jsonc
 fi
 
 "$WRANGLER" deploy --config wrangler.deploy.jsonc

@@ -40,7 +40,7 @@
   // 种子管理员（CI 注入；本地开发在 .dev.vars 中覆盖）
   "vars": {
     "SEED_ADMIN_USERNAME": "${SEED_ADMIN_USERNAME}",
-    "GITHUB_REPO": "${GITHUB_REPO}",
+    "REPORT_REPO": "${REPORT_REPO}",
     "SEED_ADMIN_PASSWORD": "${SEED_ADMIN_PASSWORD}"
   }
 }
