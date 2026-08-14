@@ -66,5 +66,6 @@ dependencies {
 
     // markdown 渲染（Markwon）
     implementation("io.noties.markwon:core:4.6.2")
-    implementation("io.noties.markwon:image-coil:4.6.2")
+    implementation("io.noties.markwon:image-coil:4.6.2") // CoilImagesPlugin
+    implementation("io.coil-kt:coil:0.13.0") // 与 image-coil 匹配的 Coil 版本（官方文档要求显式依赖）
 }
