@@ -143,6 +143,29 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
     return c.json({ memos: rows.map((m) => toCompatMemo(m, attMap.get(m.id) ?? [])), nextPageToken });
   });
 
+  // GET /users/me —— 插件 v0.26 连接测试的首个探测端点
+  compat.get("/api/v1/users/me", async (c) => {
+    const userId = await compatUserId(c);
+    if (userId === null) return c.json({ error: "unauthenticated" }, 401);
+    const user = await createDb(c.env).select().from(users).where(eq(users.id, userId)).get();
+    if (!user) return c.json({ error: "unauthenticated" }, 401);
+    return c.json({ name: `users/${user.id}`, username: user.username, displayName: user.username, role: user.role === "admin" ? "ADMIN" : "USER" });
+  });
+
+  // GET /memos/{ref}/attachments —— 插件获取 memo 附件列表
+  compat.get("/api/v1/memos/:ref/attachments", async (c) => {
+    const userId = await compatUserId(c);
+    if (userId === null) return c.json({ error: "unauthenticated" }, 401);
+    const ref = parseMemoRef(c.req.param("ref"));
+    const db = createDb(c.env);
+    const row = /^\d+$/.test(ref)
+      ? await db.select().from(memos).where(and(eq(memos.id, Number(ref)), eq(memos.creatorId, userId))).get()
+      : await db.select().from(memos).where(and(eq(memos.uid, ref), eq(memos.creatorId, userId))).get();
+    if (!row) return c.json({ error: "not found" }, 404);
+    const atts = await db.select().from(resources).where(eq(resources.memoId, row.id)).all();
+    return c.json({ attachments: atts.map(toCompatAttachment) });
+  });
+
   // POST /memos —— 创建
   compat.post("/api/v1/memos", async (c) => {
     const userId = await compatUserId(c);
