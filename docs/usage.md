@@ -15,9 +15,14 @@ Babble 是一个基于 **Cloudflare Workers** 的极简笔记服务（memos 复�
 ## 1. 快速开始
 
 1. **部署后端**（见 [第 2 节](#2-后端部署)，约 5 分钟）；
-2. **安装 Android APP**：从 [GitHub Releases](https://github.com/kyeo-hub/Babble/releases/latest) 下载 `babble-release.apk`（或使用仓库根目录的 `babble-debug.apk`）；
-3. **登录**：默认管理员为部署时配置的 `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD`；
-4. 记下第一条 memo：`# 你好 Babble`。
+2. **登录并发布第一条说说（CLI）**：
+   ```bash
+   babble login <用户名> <密码>   # 或参照第 6 节用 curl 换 token
+   babble "# 你好 Babble"
+   ```
+3. 也可直接用 REST API / 快捷指令调用（见 [第 6 节](#6-api-速查)）。
+
+> Android APP 已停止迭代（v0.3.5 为最终版，仍可从 [Releases](https://github.com/kyeo-hub/Babble/releases/latest) 下载用于数据迁移）。日常输入推荐 CLI。
 
 ## 2. 后端部署
 
@@ -53,12 +58,14 @@ curl -X PATCH https://你的域名/api/v1/me \
   -d '{"currentPassword":"旧密码","newPassword":"新密码至少8位"}'
 ```
 
-## 3. Android APP
+## 3. Android APP（归档）
+
+> **已停止迭代**：项目方向收敛为「API + CLI 优先」，v0.3.5 为最终版本，不再发布新版。以下功能说明保留给仍在使用 APP 的用户。
 
 ### 安装与更新
 
-- 下载：[GitHub Releases](https://github.com/kyeo-hub/Babble/releases/latest) 的 `babble-release.apk`；
-- **自动更新**：打 `v*` tag 时 CI 自动发布新版本；APP 启动或「设置 → 检查更新」检测到新版本后自动下载、校验并安装。
+- 下载：[GitHub Releases](https://github.com/kyeo-hub/Babble/releases/latest) 的 `babble-release.apk`（v0.3.5 最终版）；
+- APP 内自动更新不再有新版本推送。
 
 ### 登录
 
@@ -80,7 +87,9 @@ curl -X PATCH https://你的域名/api/v1/me \
 
 ## 4. 数据迁移
 
-### APP 内置迁移（推荐）
+> 两条路径均可：**APP v0.3.5 内置迁移页**（含外部资源补迁，已归档但可继续使用），或下文脚本迁移。CLI 本身不提供解析 memos.db 的迁移功能（SQLite 解析留在 APP 与脚本中）。
+
+### APP 内置迁移（含补迁，v0.3.5）
 
 右上角 ⬆ → 迁移页 → 选择旧 memos 的 `memos.db` → 自动解析（memo 内容 + 本地图片资源）→ 开始导入 → 显示报告。外部存储资源（无 blob）会被跳过并计数。
 
