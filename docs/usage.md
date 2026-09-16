@@ -9,8 +9,9 @@ Babble 是一个基于 **Cloudflare Workers** 的极简笔记服务（memos 复�
 3. [Android APP](#3-android-app)
 4. [数据迁移](#4-数据迁移)
 5. [CLI](#5-cli)
-6. [API 速查](#6-api-速查)
-7. [常见问题](#7-常见问题)
+6. [浏览器插件（Memos 兼容）](#6-浏览器插件memos-兼容)
+7. [API 速查](#7-api-速查)
+8. [常见问题](#8-常见问题)
 
 ## 1. 快速开始
 
@@ -150,7 +151,33 @@ babble server [URL]                # 查看/切换服务器（fork 部署用）
 
 环境变量 `BABBLE_SERVER` / `BABBLE_TOKEN` 优先于配置文件，适合 CI/脚本场景。
 
-## 6. API 速查
+## 6. 浏览器插件（Memos 兼容）
+
+Babble 内置 **Memos v1 gRPC-Gateway 兼容层**，[Memos Quick Note](https://github.com/chendimao/memos-browers-plugin/) 等按 Memos 官方 API 编写的浏览器插件无需改动即可使用。
+
+### 插件配置
+
+1. 在 Babble 上创建长期 API Token（`POST /api/v1/auth/tokens`，或直接用 CLI/登录接口签发）；
+2. 插件设置页填写：
+   - **Host URL**：`https://bb.kyeo.top`（fork 用户填自己的域名）；
+   - **API Token**：上一步的长期 token；
+   - **API 版本**：选 **v0.26**（兼容层按 v1 gRPC-Gateway 形态实现，v0.26 档最接近）；
+3. 保存后插件即可：快速记录、标签补全、图片/文件上传、列表查看与编辑。
+
+### 兼容范围
+
+| 能力 | 支持 |
+|---|---|
+| 创建 / 列表 / 详情 / 编辑 / 删除 memo | ✅ |
+| 标签列表（`memos/-/tags`）与按标签过滤 | ✅ |
+| 附件上传（`POST /api/v1/attachments`）与下载（`/file/attachments/{uid}/{name}`） | ✅ |
+| 会话探测（`auth/sessions/current`，Bearer token） | ✅ |
+| 密码会话登录（`POST /auth/sessions`） | ❌ 请用 API Token |
+| 评论 / 反应 / 收件箱 / 快捷方式 / SSO | ❌ 未实现 |
+
+> 认证说明：插件只用 `Authorization: Bearer`，兼容层同时接受长期 API Token 与 JWT access token。
+
+## 7. API 速查
 
 ```bash
 # 登录获取 token
@@ -174,7 +201,7 @@ curl -X POST https://你的域名/api/v1/memos/<id>/share \
 
 完整契约见 [docs/api.md](api.md)；线上 Swagger UI：`https://你的域名/doc`。
 
-## 7. 常见问题
+## 8. 常见问题
 
 **登录返回 401「用户名或密码错误」**：确认用户名/密码正确；连续 5 次失败会触发限流（60 秒内返回 429），等待窗口过后重试。
 
