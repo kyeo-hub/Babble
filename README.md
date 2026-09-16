@@ -120,22 +120,9 @@ babble list / search / show / edit / pin / archive / delete / upload
 
 Go 版从 [Releases](https://github.com/kyeo-hub/Babble/releases) 下载（tag `cli-v*`，附 sha256sums.txt 校验）。
 
-## Android APP（已停止迭代，归档保留）
+## Android APP（已移除）
 
-> 项目方向已收敛为「API + CLI 优先」，APP 不再迭代新功能（v0.3.5 为最终版，Release 仍可下载）。数据迁移与外部资源补迁能力继续可用：用 APP v0.3.5 内置迁移页，或参考 [使用文档](docs/usage.md) 的脚本迁移路径。
-
-源码在 `android/`（Kotlin + Jetpack Compose），构建 debug APK：
-
-```bash
-cd android && ./gradlew :app:assembleDebug
-# 产物：android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-功能：登录（JWT）、memo 列表（Markdown 渲染）/新建/编辑、memos 数据迁移页。
-
-- **服务器地址可配置**：登录页与「设置」页（列表右上角 ⚙）可填写后端地址（默认 `https://bb.kyeo.top`），切换服务器会清除令牌并重新登录——适合 fork 部署到自定义域名的实例；
-- **数据迁移**：列表右上角 ⬆ 进入迁移页，选择旧 memos 的 `memos.db`，APP 内置解析并调用 `/api/v1/migrate/import` 导入；
-- **自动更新**：打 `v*` tag 时 CI 自动构建 release APK 并发布到 GitHub Releases（含 `update.json` 清单）；APP 启动或「设置 → 检查更新」检测新版本并下载安装（fork 用户改 `App.UPDATE_MANIFEST_URL`）。
+> APP 已从仓库移除（历史版本 v0.3.5 仍可在 [Releases](https://github.com/kyeo-hub/Babble/releases/tag/v0.3.5) 下载，但不再维护）。日常使用推荐 [CLI](#cli推荐日常入口)；数据迁移用脚本路径（见 [使用文档](docs/usage.md)）。
 
 ## 项目结构
 
@@ -163,9 +150,9 @@ scripts/deploy/           # 一键部署基建保障脚本
 | P2 | 资源上传（R2） | ✅ |
 | P3 | 标签 / 分享 / 搜索增强 | ✅ |
 | P4 | 实时推送（WS/SSE）+ 登录限流 | ✅ |
-| P5 | 批量导入接口 + Android APP（登录/列表/编辑/迁移页/设置） | ✅ |
-| P6 | memos 数据迁移（脚本双路径 + APP 内置） | ✅ |
-| P7 | APP CI/CD 自动发布 + 自动更新 | ✅ |
+| P5 | 批量导入接口 + Android APP（已移除） | ✅ |
+| P6 | memos 数据迁移（脚本双路径） | ✅ |
+| P7 | ~~APP CI/CD~~（随 APP 移除） | — |
 | P8 | Telegram bot | ⏳ |
 
 ## License

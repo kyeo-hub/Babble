@@ -1,17 +1,16 @@
 # Babble 使用文档
 
-Babble 是一个基于 **Cloudflare Workers** 的极简笔记服务（memos 复刻）：后端 API + Android APP，支持 Markdown、标签、公开分享、实时推送与自托管。
+Babble 是一个基于 **Cloudflare Workers** 的极简说说/笔记服务（memos 复刻）：后端 API + CLI，支持 Markdown、标签、公开分享、实时推送与自托管。
 
 ## 目录
 
 1. [快速开始](#1-快速开始)
 2. [后端部署](#2-后端部署)
-3. [Android APP](#3-android-app)
-4. [数据迁移](#4-数据迁移)
-5. [CLI](#5-cli)
-6. [浏览器插件（Memos 兼容）](#6-浏览器插件memos-兼容)
-7. [API 速查](#7-api-速查)
-8. [常见问题](#8-常见问题)
+3. [数据迁移](#3-数据迁移)
+4. [CLI](#4-cli)
+5. [浏览器插件（Memos 兼容）](#5-浏览器插件memos-兼容)
+6. [API 速查](#6-api-速查)
+7. [常见问题](#7-常见问题)
 
 ## 1. 快速开始
 
@@ -23,7 +22,7 @@ Babble 是一个基于 **Cloudflare Workers** 的极简笔记服务（memos 复�
    ```
 3. 也可直接用 REST API / 快捷指令调用（见 [第 6 节](#6-api-速查)）。
 
-> Android APP 已停止迭代（v0.3.5 为最终版，仍可从 [Releases](https://github.com/kyeo-hub/Babble/releases/latest) 下载用于数据迁移）。日常输入推荐 CLI。
+> Android APP 已从仓库移除，不再维护。日常输入推荐 CLI。
 
 ## 2. 后端部署
 
@@ -50,7 +49,7 @@ Babble 是一个基于 **Cloudflare Workers** 的极简笔记服务（memos 复�
 
 ### 修改管理员账号
 
-部署后可用 APP「设置 → 修改账号」修改用户名/密码，也可直接调 API：
+修改用户名/密码直接调 API（CLI 无对应子命令）：
 
 ```bash
 curl -X PATCH https://你的域名/api/v1/me \
@@ -59,40 +58,9 @@ curl -X PATCH https://你的域名/api/v1/me \
   -d '{"currentPassword":"旧密码","newPassword":"新密码至少8位"}'
 ```
 
-## 3. Android APP（归档）
+## 3. 数据迁移
 
-> **已停止迭代**：项目方向收敛为「API + CLI 优先」，v0.3.5 为最终版本，不再发布新版。以下功能说明保留给仍在使用 APP 的用户。
-
-### 安装与更新
-
-- 下载：[GitHub Releases](https://github.com/kyeo-hub/Babble/releases/latest) 的 `babble-release.apk`（v0.3.5 最终版）；
-- APP 内自动更新不再有新版本推送。
-
-### 登录
-
-打开 APP → 填写「服务器地址」（默认 `https://bb.kyeo.top`；fork 用户填自己部署的域名）→ 用户名/密码登录。
-
-### 功能一览
-
-| 功能 | 位置 |
-|---|---|
-| memo 列表（Markdown 渲染、标签、置顶标记、分页加载） | 主界面 |
-| 下拉刷新 | 列表下拉 |
-| 新建 memo | 右下角 ＋ |
-| 编辑 memo | 点击卡片 |
-| 置顶 / 取消置顶 | 卡片右上角 ⋮ |
-| 归档 / 取消归档 | 卡片右上角 ⋮ |
-| 删除 memo（二次确认） | 卡片右上角 ⋮ |
-| 迁移旧 memos 数据 | 右上角 ⬆ |
-| 服务器地址 / 修改账号 / 检查更新 | 右上角 ⚙ |
-
-## 4. 数据迁移
-
-> 两条路径均可：**APP v0.3.5 内置迁移页**（含外部资源补迁，已归档但可继续使用），或下文脚本迁移。CLI 本身不提供解析 memos.db 的迁移功能（SQLite 解析留在 APP 与脚本中）。
-
-### APP 内置迁移（含补迁，v0.3.5）
-
-右上角 ⬆ → 迁移页 → 选择旧 memos 的 `memos.db` → 自动解析（memo 内容 + 本地图片资源）→ 开始导入 → 显示报告。外部存储资源（无 blob）会被跳过并计数。
+> 迁移走脚本路径（CLI 不提供 memos.db 解析）。
 
 ### 脚本迁移（双路径）
 
@@ -100,7 +68,7 @@ curl -X PATCH https://你的域名/api/v1/me \
 
 ### 外部存储资源补迁
 
-当直转/APP 迁移有资源被跳过（无本地 blob，存于磁盘或 S3）时，用补迁工具从旧站 API 提取并增量导入：
+当直转迁移有资源被跳过（无本地 blob，存于磁盘或 S3）时，用补迁工具从旧站 API 提取并增量导入：
 
 1. 在旧 memos「设置 → API」生成 token（建议先轮换），提取全部资源（含外部存储）：
 
@@ -129,9 +97,9 @@ curl -X PATCH https://你的域名/api/v1/me \
    bash scripts/migrate/out/backfill-r2.sh
    ```
 
-说明：`INSERT OR IGNORE` 按资源 uid 幂等去重；脚本同时把 memo 内容里的旧图片引用（`/o/r/<uid>`、`/file/<uid>` 及旧站完整 URL）重写为 `/api/v1/resources/<新id>/file`，图片在新站/APP 即可显示。
+说明：`INSERT OR IGNORE` 按资源 uid 幂等去重；脚本同时把 memo 内容里的旧图片引用（`/o/r/<uid>`、`/file/<uid>` 及旧站完整 URL）重写为 `/api/v1/resources/<新id>/file`，图片在新站即可显示。
 
-## 5. CLI
+## 4. CLI
 
 两个版本任选：
 
@@ -158,7 +126,7 @@ babble server [URL]                # 查看/切换服务器（fork 部署用）
 
 环境变量 `BABBLE_SERVER` / `BABBLE_TOKEN` 优先于配置文件，适合 CI/脚本场景。
 
-## 6. 浏览器插件（Memos 兼容）
+## 5. 浏览器插件（Memos 兼容）
 
 Babble 内置 **Memos v1 gRPC-Gateway 兼容层**，[Memos Quick Note](https://github.com/chendimao/memos-browers-plugin/) 等按 Memos 官方 API 编写的浏览器插件无需改动即可使用。
 
@@ -184,7 +152,7 @@ Babble 内置 **Memos v1 gRPC-Gateway 兼容层**，[Memos Quick Note](https://g
 
 > 认证说明：插件只用 `Authorization: Bearer`，兼容层同时接受长期 API Token 与 JWT access token。
 
-## 7. API 速查
+## 6. API 速查
 
 ```bash
 # 登录获取 token
@@ -208,7 +176,7 @@ curl -X POST https://你的域名/api/v1/memos/<id>/share \
 
 完整契约见 [docs/api.md](api.md)；线上 Swagger UI：`https://你的域名/doc`。
 
-## 8. 常见问题
+## 7. 常见问题
 
 **登录返回 401「用户名或密码错误」**：确认用户名/密码正确；连续 5 次失败会触发限流（60 秒内返回 429），等待窗口过后重试。
 
@@ -216,9 +184,7 @@ curl -X POST https://你的域名/api/v1/memos/<id>/share \
 
 **忘记密码**：可重置——删除 D1 中 `users` 表数据后重新登录，会按 `SEED_ADMIN_*` 重建管理员（慎用：会丢失账号自定义信息）。
 
-**APP 提示「检查失败或暂无更新源」**：确认网络可达 GitHub；fork 用户需修改 `App.UPDATE_MANIFEST_URL` 指向自己仓库的 `update.json`。
-
-**反馈与问题上报**：APP 内「报告问题」入口随 APP 归档一并停用（后端 `POST /api/v1/report-issue` 接口保留，仍可调用）。推荐直接在仓库 [New Issue](https://github.com/kyeo-hub/Babble/issues/new) 提交，附上 CLI 报错输出或 API 响应。
+**反馈与问题上报**：后端 `POST /api/v1/report-issue` 接口保留可调用。推荐直接在仓库 [New Issue](https://github.com/kyeo-hub/Babble/issues/new) 提交，附上 CLI 报错输出或 API 响应。
 
 **迁移提示跳过外部存储资源**：这些资源文件不在 memos.db 内（存于服务器磁盘/S3），需用脚本的 API 提取路径（`extract-api.mjs`）配合旧站 token 补迁。
 

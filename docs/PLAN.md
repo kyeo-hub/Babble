@@ -1,7 +1,7 @@
 # Babble 项目方案（基于 Cloudflare 的 memos 复刻后端）
 
 > 目标：在 Cloudflare 生态上实现一个 memos 复刻版笔记服务，只做后端 API。
-> 前端 / Android APP / 微信小程序 / Telegram bot 全部通过 API 接入，markdown 由各端自行渲染。
+> CLI / 浏览器插件 / 快捷指令 / 微信小程序 / Telegram bot 全部通过 API 接入，markdown 由各端自行渲染。（Android APP 已于 2026-09 移除）
 > 现有 memos 数据在项目完成后迁移。
 
 ## 已确认决策
@@ -38,7 +38,7 @@
                     │            Cloudflare Workers           │
                     │                                         │
   Web前端 ────────▶ │  Hono Router (所有 /api/v1/*)           │
-  Android ────────▶ │    ├─ middleware: JWT / API Token / 限流 │
+  CLI/插件 ───────▶ │    ├─ middleware: JWT / API Token / 限流 │
   小程序 ─────────▶ │    ├─ routes: auth / memos / tags /      │
   TG bot ─────────▶ │    │            resources / share / ws   │
                     │    └─ services + Drizzle                 │
@@ -58,7 +58,7 @@
 
 ```sql
 users         id, uid, username, password_hash, role, created_ts, updated_ts
-api_tokens    id, token_hash, user_id, name, created_ts, last_used_ts   -- bot/APP 长期凭证
+api_tokens    id, token_hash, user_id, name, created_ts, last_used_ts   -- bot/CLI 长期凭证
 memos         id, uid, creator_id, content, visibility, pinned, row_status,
               created_ts, updated_ts
 tags          id, name, creator_id, created_ts   -- UNIQUE(name, creator_id)
@@ -82,7 +82,7 @@ resources     id, uid, memo_id, creator_id, name, type, size,
 | POST | `/api/v1/auth/refresh` | 刷新 JWT |
 | POST | `/api/v1/auth/register` | 默认关闭；仅首启种子账号 |
 | GET | `/api/v1/me` | 当前用户信息 |
-| POST | `/api/v1/auth/tokens` | 签发长期 API Token（bot/APP 用） |
+| POST | `/api/v1/auth/tokens` | 签发长期 API Token（bot/CLI 用） |
 
 ### Memo
 | 方法 | 路径 | 说明 |
@@ -121,7 +121,7 @@ resources     id, uid, memo_id, creator_id, name, type, size,
 
 - **MemoHub DO**：每个客户端 `connect` 到 DO，DO 维护连接集合并把事件推给订阅者；
 - 单用户阶段直接广播全部事件；预留 `visibility` 过滤逻辑，多用户时按可见性过滤；
-- WS 与 SSE 双通道：APP/Web 用 WS，小程序/简单站点用 SSE（避免 WS 兼容问题）；
+- WS 与 SSE 双通道：Web/CLI 客户端用 WS，小程序/简单站点用 SSE（避免 WS 兼容问题）；
 - 断线补偿：客户端重连后用 `?since=<ts>` 拉取增量，配合全量列表兜底。
 
 ## 6. 认证设计（单用户优先）
@@ -156,7 +156,7 @@ memos API ─▶ B. API 拉取 ────┼──▶ 统一中间 JSON ──
 | P4 | 实时：MemoHub DO + WS/SSE | 双端订阅收到变更 |
 | P5 | Telegram bot（webhook 收发 + markdown 渲染） | bot 双向可用 |
 | P6 | 迁移工具双路径 + 老站数据迁移验证 | 一致性报告通过 |
-| P7 | Android / 小程序按 SDK 接入；老 memos 下线、切换域名 | 客户端可用 |
+| P7 | ~~Android APP~~（已移除）；老 memos 下线、切换域名 | 客户端可用 |
 
 ## 9. 限制与风险
 

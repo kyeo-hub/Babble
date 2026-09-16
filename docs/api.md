@@ -1,6 +1,6 @@
 # Babble API 契约（v1）
 
-> 全新设计的 REST API，面向 Web 前端 / Android APP / 微信小程序 / Telegram bot 统一对接。
+> REST API，面向 CLI / 浏览器插件 / 快捷指令 / 任意自建端统一对接。
 > 所有时间戳为 unix 秒；所有请求/响应均为 JSON（除资源上传/下载）。
 > 服务端只存与返回 **markdown 原文**，渲染由各端自行完成。
 
@@ -20,7 +20,7 @@
 
 | 方式 | 头 | 适用 |
 |---|---|---|
-| JWT | `Authorization: Bearer <jwt>` | Web / APP 登录会话 |
+| JWT | `Authorization: Bearer <jwt>` | Web / CLI 登录会话 |
 | 长期 API Token | `X-API-Token: <token>` | Telegram bot / 小程序 / 自动化 |
 
 401 响应：`{"error":{"code":"UNAUTHORIZED","message":"..."}}`
@@ -99,7 +99,7 @@
 
 返回当前用户 `{ ...User }`。
 
-### POST `/auth/tokens`（bot / APP 长期凭证）
+### POST `/auth/tokens`（bot / CLI 长期凭证）
 
 请求：`{"name":"telegram-bot"}` → 响应：
 

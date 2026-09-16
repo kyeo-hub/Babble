@@ -91,7 +91,6 @@ babble "第一条说说"</pre>
     <ul>
       <li>自部署指南与完整文档：<a href="https://github.com/kyeo-hub/Babble/blob/main/docs/usage.md">docs/usage.md</a></li>
       <li>项目官网：<a href="https://babble-site.pages.dev">babble-site.pages.dev</a></li>
-      <li>Android APP（已归档，v0.3.5 最终版）：<a href="https://github.com/kyeo-hub/Babble/releases">Releases</a></li>
     </ul>
   </div>
 </main>
