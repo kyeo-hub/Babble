@@ -1,4 +1,4 @@
-name: Reset Admin Account
+name: Reset Admin Password
 
 on:
   workflow_dispatch:
@@ -29,10 +29,35 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Reset users & api_tokens (D1 remote)
-        run: |
-          ./node_modules/.bin/wrangler d1 execute babble --config wrangler.deploy.jsonc --remote \
-            --command "DELETE FROM users; DELETE FROM api_tokens;" -y
+      - name: Reset admin password to SEED_ADMIN_PASSWORD (in place, keeps memos)
+        shell: node {0}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SEED_ADMIN_USERNAME: ${{ vars.SEED_ADMIN_USERNAME }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
+        run: |
+          const { execFileSync } = require("node:child_process");
+          const crypto = require("node:crypto");
+
+          const username = process.env.SEED_ADMIN_USERNAME || "admin";
+          const password = process.env.SEED_ADMIN_PASSWORD;
+          if (!password) {
+            console.error("缺少 SEED_ADMIN_PASSWORD Secret");
+            process.exit(1);
+          }
+
+          // 与 src/lib/password.ts 相同格式：pbkdf2$<iterations>$<saltHex>$<hashHex>
+          const salt = crypto.randomBytes(16).toString("hex");
+          const hash = crypto
+            .pbkdf2Sync(password, Buffer.from(salt, "hex"), 100000, 32, "sha256")
+            .toString("hex");
+          const stored = `pbkdf2$100000$${salt}$${hash}`;
+
+          const sql = `UPDATE users SET password_hash = '${stored}' WHERE username = '${username}'; DELETE FROM api_tokens;`;
+          execFileSync(
+            "./node_modules/.bin/wrangler",
+            ["d1", "execute", "babble", "--config", "wrangler.deploy.jsonc", "--remote", "--command", sql, "-y"],
+            { stdio: "inherit" },
+          );
+          console.log(`✅ 已将 ${username} 的密码重置为 SEED_ADMIN_PASSWORD，并吊销全部 API token`);
