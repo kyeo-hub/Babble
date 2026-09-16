@@ -1,0 +1,68 @@
+name: CLI Release
+
+on:
+  push:
+    tags: ["cli-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Build (cross-compile, 5 targets)
+        run: |
+          VERSION="${GITHUB_REF_NAME#cli-v}"
+          LDFLAGS="-s -w -X main.version=${VERSION}"
+          mkdir -p dist
+          # OS/ARCH/扩展名
+          for target in \
+            "windows/amd64/.exe" \
+            "windows/arm64/.exe" \
+            "linux/amd64/" \
+            "linux/arm64/" \
+            "darwin/amd64/" \
+            "darwin/arm64/"; do
+            GOOS="${target%%/*}"
+            rest="${target#*/}"
+            GOARCH="${rest%%/*}"
+            EXT="${rest#*/}"
+            OUT="dist/babble_${VERSION}_${GOOS}_${GOARCH}${EXT}"
+            echo "Building $OUT"
+            GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 \
+              go build -trimpath -ldflags "$LDFLAGS" -o "$OUT" ./cmd/babble
+          done
+
+      - name: Generate sha256
+        run: |
+          cd dist
+          sha256sum babble_* > sha256sums.txt
+          cat sha256sums.txt
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/babble_*
+            dist/sha256sums.txt
+          body: |
+            Babble CLI（Go 单文件，零依赖）
+
+            | 平台 | 文件 |
+            |---|---|
+            | Windows x64 | babble_${{ github.ref_name }}_windows_amd64.exe |
+            | Windows ARM64 | babble_${{ github.ref_name }}_windows_arm64.exe |
+            | Linux x64 / ARM64 | babble_${{ github.ref_name }}_linux_* |
+            | macOS Intel / Apple Silicon | babble_${{ github.ref_name }}_darwin_* |
+
+            Windows 安装：下载对应 exe 重命名为 `babble.exe`，放入 PATH 即可。
+            macOS/Linux：下载后 `chmod +x babble` 并移入 PATH。
+            校验：见 sha256sums.txt。
