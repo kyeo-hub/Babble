@@ -30,6 +30,65 @@ app.get("/api/v1/health", (c) => {
   });
 });
 
+/** 根路径主页：服务状态 + CLI 一条命令安装 + 文档入口 */
+app.get("/", (c) => {
+  const origin = new URL(c.req.url).origin;
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Babble — 服务在线</title>
+<style>
+  :root { --fg:#1e293b; --muted:#64748b; --bg:#f8fafc; --card:#fff; --accent:#fbbf24; --border:#e2e8f0; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--fg); line-height:1.6; }
+  main { max-width:720px; margin:0 auto; padding:48px 20px; }
+  h1 { font-size:1.9rem; margin:0 0 4px; }
+  .status { color:#16a34a; font-weight:600; }
+  .muted { color:var(--muted); font-size:.95rem; }
+  pre { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:14px 16px; overflow-x:auto; font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px 24px; margin:16px 0; }
+  a { color:#b45309; }
+  ul { padding-left:20px; margin:8px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>📝 Babble <span class="status">● 在线</span></h1>
+  <p class="muted">基于 Cloudflare Workers 的极简说说服务 —— API + CLI 优先，全托管零运维。</p>
+
+  <div class="card">
+    <h3>⌨️ 一条命令安装 CLI</h3>
+    <pre>curl -fsSL ${origin}/cli -o babble &amp;&amp; sh babble --install
+babble login &lt;用户名&gt; &lt;密码&gt;
+babble "第一条说说"</pre>
+    <p class="muted">脚本由本服务直出（jsDelivr 回源），国内可达。</p>
+  </div>
+
+  <div class="card">
+    <h3>🔌 API 入口</h3>
+    <ul>
+      <li>健康检查：<a href="${origin}/api/v1/health">/api/v1/health</a></li>
+      <li>Swagger UI：<a href="${origin}/doc">/doc</a> · OpenAPI：<a href="${origin}/openapi.json">/openapi.json</a></li>
+      <li>契约文档：<a href="https://github.com/kyeo-hub/Babble/blob/main/docs/api.md">docs/api.md</a></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>📦 更多</h3>
+    <ul>
+      <li>自部署指南与完整文档：<a href="https://github.com/kyeo-hub/Babble/blob/main/docs/usage.md">docs/usage.md</a></li>
+      <li>项目官网：<a href="https://babble-site.pages.dev">babble-site.pages.dev</a></li>
+      <li>Android APP（已归档，v0.3.5 最终版）：<a href="https://github.com/kyeo-hub/Babble/releases">Releases</a></li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>`;
+  return c.html(html);
+});
+
 // 业务路由统一挂在 /api/v1 下
 const api = new OpenAPIHono<AppEnv>();
 authRoutes(api);
