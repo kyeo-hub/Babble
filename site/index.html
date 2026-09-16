@@ -21,8 +21,11 @@
     <h2>安装与使用（CLI）</h2>
     <p>单文件零依赖脚本（仅需 curl + jq），日常发说说就是一条命令。</p>
     <h3>1️⃣ 安装（一条命令）</h3>
-    <pre><code>curl -fsSL https://bb.kyeo.top/cli -o babble &amp;&amp; sh babble --install
-# 脚本由你的 Babble 服务器直出（jsDelivr CDN 回源，国内友好），无需访问 raw.githubusercontent.com</code></pre>
+    <pre><code># Windows：从 GitHub Releases 下载 babble_*_windows_amd64.exe
+#         重命名为 babble.exe 放入 PATH 即可（零依赖单文件）
+# macOS / Linux：
+curl -fsSL https://bb.kyeo.top/cli -o babble &amp;&amp; sh babble --install</code></pre>
+    <p class="muted">Go 单文件版（Windows/macOS/Linux）见 <a href="https://github.com/kyeo-hub/Babble/releases">Releases</a>；脚本由你的 Babble 服务器直出（jsDelivr 回源），国内可达。</p>
     <h3>2️⃣ 登录（一次性）</h3>
     <pre><code>babble login &lt;用户名&gt; &lt;密码&gt;    # 签发长期 API token，存 ~/.config/babble/</code></pre>
     <h3>3️⃣ 随手发布</h3>

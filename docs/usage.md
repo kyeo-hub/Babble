@@ -133,12 +133,19 @@ curl -X PATCH https://你的域名/api/v1/me \
 
 ## 5. CLI
 
-日常快速输入推荐用单文件 CLI（零依赖，curl + jq），源码在 `scripts/cli/babble`：
+两个版本任选：
+
+- **Go 单文件（推荐，Windows 用户选这个）**：零依赖，从 [Releases](https://github.com/kyeo-hub/Babble/releases) 下载对应平台二进制（tag `cli-v*`）——Windows 下载 `babble_*_windows_amd64.exe` 重命名为 `babble.exe` 放入 PATH 即可；macOS/Linux 下载后 `chmod +x babble` 移入 PATH；
+- **bash 脚本**（需 curl + jq）：
 
 ```bash
 # 安装（一条命令，脚本由你的 Babble 服务器直出，国内友好）
 curl -fsSL https://bb.kyeo.top/cli -o babble && sh babble --install
+```
 
+用法（两版一致）：
+
+```bash
 babble login <用户名> <密码>       # 签发长期 API token，存 ~/.config/babble/config
 babble "今天天气不错"              # 快速发布说说
 echo "管道内容" | babble post      # stdin 发布

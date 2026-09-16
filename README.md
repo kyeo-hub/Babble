@@ -105,18 +105,20 @@ CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... ./scripts/migrate/run-migrati
 
 ## CLI（推荐日常入口）
 
-单文件零依赖脚本（curl + jq），源码在 `scripts/cli/babble`：
+两个版本任选：**Go 单文件**（零依赖，Windows/macOS/Linux 全平台）或 bash 脚本（需 curl+jq）。
 
 ```bash
-# 安装（一条命令，脚本由你的 Babble 服务器直出，国内友好）
+# Windows：从 Releases 下载 babble_*_windows_amd64.exe 重命名为 babble.exe，放入 PATH
+# macOS/Linux：下载对应平台二进制（或用 bash 版一条命令安装）
 curl -fsSL https://bb.kyeo.top/cli -o babble && sh babble --install
-# 也可从仓库直接安装：install scripts/cli/babble /usr/local/bin/
 
-babble login <用户名> <密码>        # 一次性：签发长期 API token 存入 ~/.config/babble/
+babble login <用户名> <密码>        # 一次性：签发长期 API token
 babble "今天天气不错"               # 快速发布说说
 echo "管道内容" | babble post       # stdin 发布
 babble list / search / show / edit / pin / archive / delete / upload
 ```
+
+Go 版从 [Releases](https://github.com/kyeo-hub/Babble/releases) 下载（tag `cli-v*`，附 sha256sums.txt 校验）。
 
 ## Android APP（已停止迭代，归档保留）
 
