@@ -3,24 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Babble — 极简笔记 · 自托管 · 开源</title>
-  <meta name="description" content="Babble：基于 Cloudflare Workers 的极简自托管笔记服务，支持 Android APP、自动更新与一键部署。">
+  <title>Babble — 极简说说服务 · API + CLI · 自托管 · 开源</title>
+  <meta name="description" content="Babble：基于 Cloudflare Workers 的极简自托管说说/笔记服务，API + CLI 优先，一键部署，零本地服务器。">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="hero">
     <h1>📝 Babble</h1>
-    <p class="tagline">基于 Cloudflare Workers 的极简笔记服务 —— memos 复刻，自托管，跨端同步</p>
+    <p class="tagline">基于 Cloudflare Workers 的极简说说服务 —— memos 复刻，API + CLI 优先，全托管零运维</p>
     <div class="actions">
-      <a class="btn primary" href="https://github.com/kyeo-hub/Babble/releases/latest/download/babble-release.apk">⬇️ 下载 Android APP</a>
+      <a class="btn primary" href="#quickstart">🚀 快速开始</a>
       <a class="btn" href="https://github.com/kyeo-hub/Babble">GitHub</a>
     </div>
   </header>
 
+  <section class="quickstart" id="quickstart">
+    <h2>安装与使用（CLI）</h2>
+    <p>单文件零依赖脚本（仅需 curl + jq），日常发说说就是一条命令。</p>
+    <h3>1️⃣ 安装</h3>
+    <pre><code># 从仓库下载脚本并安装到 PATH
+curl -fsSL https://raw.githubusercontent.com/kyeo-hub/Babble/main/scripts/cli/babble -o babble
+chmod +x babble && install babble /usr/local/bin/   # 或 alias babble='$PWD/babble'</code></pre>
+    <h3>2️⃣ 登录（一次性）</h3>
+    <pre><code>babble login &lt;用户名&gt; &lt;密码&gt;    # 签发长期 API token，存 ~/.config/babble/</code></pre>
+    <h3>3️⃣ 随手发布</h3>
+    <pre><code>babble "今天天气不错"            # 快速发布说说
+echo "管道内容" | babble post    # stdin 发布
+babble list / search / show / edit / pin / archive / delete / upload</code></pre>
+    <p>不用 CLI？直接调 REST API 或用手机快捷指令（HTTP POST）即可，见 <a href="https://github.com/kyeo-hub/Babble/blob/main/docs/usage.md">使用文档</a>。</p>
+  </section>
+
+  <section class="deploy">
+    <h2>自己部署（约 5 分钟）</h2>
+    <ol>
+      <li>Fork 本仓库；</li>
+      <li>配置 Cloudflare API Token 等少量 Secrets；</li>
+      <li>Actions → <b>Deploy to Cloudflare Workers → Run workflow</b>。</li>
+    </ol>
+    <p>详细步骤见 <a href="https://github.com/kyeo-hub/Babble/blob/main/docs/usage.md#2-后端部署">部署文档</a>。D1 + R2 + KV 免费额度足够个人使用。</p>
+  </section>
+
   <section class="features">
     <h2>功能特性</h2>
     <div class="grid">
-      <div class="card"><h3>✍️ Markdown 笔记</h3><p>列表 / 编辑 / 标签 / 置顶 / 归档，分页加载与下拉刷新。</p></div>
+      <div class="card"><h3>✍️ Markdown 说说</h3><p>创建 / 编辑 / 标签 / 置顶 / 归档 / 搜索，全文存 Markdown 原文。</p></div>
+      <div class="card"><h3>⌨️ API + CLI</h3><p>REST API + 单文件 CLI，快捷指令 / 脚本 / 其它应用随时调用。</p></div>
       <div class="card"><h3>📎 图片与附件</h3><p>R2 存储，图片直出，随 memo 级联清理。</p></div>
       <div class="card"><h3>🔗 公开分享</h3><p>一键生成分享短链，无鉴权访问，随时撤销。</p></div>
       <div class="card"><h3>⚡ 实时推送</h3><p>WebSocket / SSE 双通道，断线增量补偿。</p></div>
@@ -30,9 +57,9 @@
   </section>
 
   <section class="download">
-    <h2>下载与更新</h2>
-    <p>Android APP 支持 <b>自动更新</b>：启动时检查 / 设置页手动检查，检测到新版本自动下载、校验并安装。</p>
-    <a class="btn primary" href="https://github.com/kyeo-hub/Babble/releases/latest/download/babble-release.apk">⬇️ babble-release.apk（最新版）</a>
+    <h2>Android APP（归档）</h2>
+    <p>项目方向已收敛为 <b>API + CLI 优先</b>。APP 停止迭代，v0.3.5 为最终版（仍可用于数据迁移与外部资源补迁）。</p>
+    <a class="btn" href="https://github.com/kyeo-hub/Babble/releases/latest/download/babble-release.apk">⬇️ v0.3.5（最终版 APK）</a>
   </section>
 
   <section class="docs">
