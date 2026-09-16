@@ -184,6 +184,8 @@ curl -X POST https://你的域名/api/v1/memos/<id>/share \
 
 **APP 提示「检查失败或暂无更新源」**：确认网络可达 GitHub；fork 用户需修改 `App.UPDATE_MANIFEST_URL` 指向自己仓库的 `update.json`。
 
+**反馈与问题上报**：APP 内「报告问题」入口随 APP 归档一并停用（后端 `POST /api/v1/report-issue` 接口保留，仍可调用）。推荐直接在仓库 [New Issue](https://github.com/kyeo-hub/Babble/issues/new) 提交，附上 CLI 报错输出或 API 响应。
+
 **迁移提示跳过外部存储资源**：这些资源文件不在 memos.db 内（存于服务器磁盘/S3），需用脚本的 API 提取路径（`extract-api.mjs`）配合旧站 token 补迁。
 
 **数据备份**：可用 `wrangler d1 export` 导出 D1；资源文件在 R2 桶中（建议定期备份）。
