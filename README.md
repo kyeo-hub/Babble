@@ -1,6 +1,6 @@
 # Babble
 
-基于 **Cloudflare Workers** 的 memos 复刻笔记服务 —— 只做后端 API，markdown 渲染交给各端（Web / Android / 微信小程序 / Telegram bot）。
+基于 **Cloudflare Workers** 的 memos 复刻说说/笔记服务 —— 后端 API + CLI，零本地服务器、全托管免费额度运行。任意客户端（CLI / 快捷指令 / curl / 自建端）通过 REST API 调用。
 
 ## 特性
 
@@ -103,7 +103,23 @@ CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... ./scripts/migrate/run-migrati
 
 > 说明：`protected` 可见性会映射为 `private`；`--id-offset` 需与导入时一致；建议先迁到空库或用大 offset 隔离。老站验证通过前保持运行，不要急于下线。
 
-## Android APP
+## CLI（推荐日常入口）
+
+单文件零依赖脚本（curl + jq），源码在 `scripts/cli/babble`：
+
+```bash
+# 安装
+install scripts/cli/babble /usr/local/bin/  # 或 alias babble='~/path/to/babble'
+
+babble login <用户名> <密码>        # 一次性：签发长期 API token 存入 ~/.config/babble/
+babble "今天天气不错"               # 快速发布说说
+echo "管道内容" | babble post       # stdin 发布
+babble list / search / show / edit / pin / archive / delete / upload
+```
+
+## Android APP（已停止迭代，归档保留）
+
+> 项目方向已收敛为「API + CLI 优先」，APP 不再迭代新功能（v0.3.5 为最终版，Release 仍可下载）。数据迁移与外部资源补迁能力继续可用：用 APP v0.3.5 内置迁移页，或参考 [使用文档](docs/usage.md) 的脚本迁移路径。
 
 源码在 `android/`（Kotlin + Jetpack Compose），构建 debug APK：
 

@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# babble —— Babble（Cloudflare 版 memos）CLI
+# 单文件、零依赖（仅 curl + jq 可选）。用法见 `babble help`。
+set -euo pipefail
+
+CONF_DIR="${BABBLE_HOME:-$HOME/.config/babble}"
+CONF_FILE="$CONF_DIR/config"
+
+# ---------- 配置 ----------
+load_config() {
+  if [ -f "$CONF_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$CONF_FILE"
+  fi
+  SERVER="${BABBLE_SERVER:-${SERVER:-https://bb.kyeo.top}}"
+  TOKEN="${BABBLE_TOKEN:-${TOKEN:-}}"
+}
+
+save_config() {
+  mkdir -p "$CONF_DIR"
+  cat > "$CONF_FILE" <<EOF
+SERVER='$SERVER'
+TOKEN='$TOKEN'
+EOF
+  chmod 600 "$CONF_FILE"
+}
+
+api() {
+  # api METHOD PATH [JSON_BODY]
+  local method="$1" path="$2" body="${3:-}"
+  local args=( -s -m 30 -X "$method" "$SERVER/api/v1$path"
+               -H "Authorization: Bearer $TOKEN" )
+  [ -n "$body" ] && args+=( -H "Content-Type: application/json" -d "$body" )
+  local out rc
+  out=$(curl "${args[@]}") || { echo "网络错误：无法连接 $SERVER" >&2; exit 1; }
+  rc=0
+  if echo "$out" | jq -e '.error' >/dev/null 2>&1; then
+    echo "API 错误：$(echo "$out" | jq -r '.error.message // .error.code')" >&2
+    exit 1
+  fi
+  echo "$out"
+}
+
+# ---------- 子命令 ----------
+cmd_login() {
+  # cmd_login <username> <password>
+  [ $# -eq 2 ] || { echo "用法：babble login <用户名> <密码>" >&2; exit 1; }
+  local resp token id
+  resp=$(curl -s -m 30 -X POST "$SERVER/api/v1/auth/tokens" \
+    -H "Content-Type: application/json" \
+    -u "$1:$2" \
+    -d "{\"name\":\"cli-$(hostname 2>/dev/null || echo cli)\"}" )
+  # tokens 接口走认证：先用账号密码换 JWT 再签发
+  if echo "$resp" | jq -e '.error' >/dev/null 2>&1; then
+    local jwt
+    jwt=$(curl -s -m 30 -X POST "$SERVER/api/v1/auth/login" \
+      -H "Content-Type: application/json" \
+      -d "{\"username\":\"$1\",\"password\":\"$2\"}" | jq -r '.accessToken // empty')
+    [ -n "$jwt" ] || { echo "登录失败：$(echo "$resp" | jq -r '.error.message // "账号或密码错误"')" >&2; exit 1; }
+    resp=$(curl -s -m 30 -X POST "$SERVER/api/v1/auth/tokens" \
+      -H "Authorization: Bearer $jwt" -H "Content-Type: application/json" \
+      -d "{\"name\":\"cli-$(hostname 2>/dev/null || echo cli)\"}")
+    token=$(echo "$resp" | jq -r '.token // .plainToken // empty')
+  else
+    token=$(echo "$resp" | jq -r '.token // .plainToken // empty')
+  fi
+  [ -n "$token" ] || { echo "签发 token 失败：$resp" >&2; exit 1; }
+  TOKEN="$token"; save_config
+  echo "✅ 已登录 $SERVER，token 已存 $CONF_FILE"
+}
+
+cmd_server() {
+  # cmd_server [url]
+  if [ $# -ge 1 ]; then SERVER="$1"; save_config; fi
+  echo "服务器：$SERVER"
+}
+
+cmd_post() {
+  # cmd_post [-v visibility] [文本]（无参数时读 stdin）
+  local visibility="PRIVATE" text=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -v|--visibility) visibility="$2"; shift 2 ;;
+      *) text="${text:+$text }$1"; shift ;;
+    esac
+  done
+  [ -n "$text" ] || text="$(cat)"
+  [ -n "$text" ] || { echo "内容为空" >&2; exit 1; }
+  local resp
+  resp=$(api POST /memos "$(jq -n --arg c "$text" --arg v "$visibility" '{content:$c, visibility:$v}')")
+  echo "$(echo "$resp" | jq -r '.id')  $(echo "$resp" | jq -r '.content' | head -c 60)"
+}
+
+cmd_list() {
+  # cmd_list [页码]（默认 1）
+  local page="${1:-1}"
+  api GET "/memos?page=$page" | jq -r '.items[] | "\(.id)\t\(.pinned and "📌" or "  ")\t\(.createdAt)\t\(.content | gsub("\n";" ") | .[0:80])"'
+}
+
+cmd_search() {
+  [ $# -ge 1 ] || { echo "用法：babble search <关键词>" >&2; exit 1; }
+  api GET "/memos?keyword=$1" | jq -r '.items[] | "\(.id)\t\(.content | gsub("\n";" ") | .[0:80])"'
+}
+
+cmd_show() {
+  api GET "/memos/$1" | jq -r '.content'
+}
+
+cmd_edit() {
+  # cmd_edit <id> [新内容]（无内容时读 stdin）
+  local id="$1"; shift
+  local text="${*:-$(cat)}"
+  api PATCH "/memos/$id" "$(jq -n --arg c "$text" '{content:$c}')" >/dev/null
+  echo "✅ 已更新 #$id"
+}
+
+cmd_pin()   { api POST "/memos/$1/pin"    >/dev/null; echo "✅ 置顶已切换 #$1"; }
+cmd_archive(){ api POST "/memos/$1/archive" >/dev/null; echo "✅ 归档已切换 #$1"; }
+cmd_delete(){ api DELETE "/memos/$1" >/dev/null; echo "✅ 已删除 #$1"; }
+
+cmd_upload() {
+  # cmd_upload <文件> [memoId]
+  local file="$1" memo_id="${2:-}"
+  local part=( -F "file=@$file" )
+  [ -n "$memo_id" ] && part+=( -F "memoId=$memo_id" )
+  local out
+  out=$(curl -s -m 60 -X POST "$SERVER/api/v1/resources/upload" \
+    -H "Authorization: Bearer $TOKEN" "${part[@]}") || { echo "上传失败" >&2; exit 1; }
+  echo "$out" | jq -r '"\(.id)\t\(.url // ("/api/v1/resources/\(.id)/file"))\t\(.name)"'
+}
+
+cmd_help() {
+  cat <<'EOF'
+babble —— Babble CLI（说说快速发布 / 管理）
+
+用法：
+  babble login <用户名> <密码>     登录并保存长期 token
+  babble server [URL]              查看/设置服务器地址
+  babble "内容..."                 快速发布说说（等价 post）
+  babble post [-v PUBLIC] "内容"   发布（-v 指定可见性）
+  babble list [页码]               列表
+  babble search <关键词>           搜索
+  babble show <id>                 查看
+  babble edit <id> "新内容"        编辑
+  babble pin <id>                  置顶切换
+  babble archive <id>              归档切换
+  babble delete <id>               删除
+  babble upload <文件> [memoId]    上传资源
+  babble help                      本帮助
+
+环境变量：BABBLE_SERVER / BABBLE_TOKEN（优先于配置文件）
+配置文件：$BABBLE_HOME（默认 ~/.config/babble/config）
+
+管道示例：
+  echo "来自 stdin" | babble post
+  git log -1 --format=%B | babble
+EOF
+}
+
+# ---------- 入口 ----------
+load_config
+cmd="${1:-}"; [ $# -gt 0 ] && shift
+case "$cmd" in
+  login)   cmd_login "$@" ;;
+  server)  cmd_server "$@" ;;
+  post)    cmd_post "$@" ;;
+  list)    cmd_list "$@" ;;
+  search)  cmd_search "$@" ;;
+  show)    cmd_show "$@" ;;
+  edit)    cmd_edit "$@" ;;
+  pin)     cmd_pin "$@" ;;
+  archive) cmd_archive "$@" ;;
+  delete|rm) cmd_delete "$@" ;;
+  upload)  cmd_upload "$@" ;;
+  help|-h|--help|"") cmd_help ;;
+  *)       cmd_post "$cmd $*" ;;  # babble "说说内容" 直接发布
+esac

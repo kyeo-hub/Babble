@@ -8,8 +8,9 @@ Babble 是一个基于 **Cloudflare Workers** 的极简笔记服务（memos 复�
 2. [后端部署](#2-后端部署)
 3. [Android APP](#3-android-app)
 4. [数据迁移](#4-数据迁移)
-5. [API 速查](#5-api-速查)
-6. [常见问题](#6-常见问题)
+5. [CLI](#5-cli)
+6. [API 速查](#6-api-速查)
+7. [常见问题](#7-常见问题)
 
 ## 1. 快速开始
 
@@ -120,7 +121,27 @@ curl -X PATCH https://你的域名/api/v1/me \
 
 说明：`INSERT OR IGNORE` 按资源 uid 幂等去重；脚本同时把 memo 内容里的旧图片引用（`/o/r/<uid>`、`/file/<uid>` 及旧站完整 URL）重写为 `/api/v1/resources/<新id>/file`，图片在新站/APP 即可显示。
 
-## 5. API 速查
+## 5. CLI
+
+日常快速输入推荐用单文件 CLI（零依赖，curl + jq），源码在 `scripts/cli/babble`：
+
+```bash
+# 安装（一次性）
+install scripts/cli/babble /usr/local/bin/babble
+
+babble login <用户名> <密码>       # 签发长期 API token，存 ~/.config/babble/config
+babble "今天天气不错"              # 快速发布说说
+echo "管道内容" | babble post      # stdin 发布
+babble list [页码]                 # 列表
+babble search <关键词>             # 搜索
+babble show <id> / edit <id> "..." / pin <id> / archive <id> / delete <id>
+babble upload <文件> [memoId]      # 上传资源
+babble server [URL]                # 查看/切换服务器（fork 部署用）
+```
+
+环境变量 `BABBLE_SERVER` / `BABBLE_TOKEN` 优先于配置文件，适合 CI/脚本场景。
+
+## 6. API 速查
 
 ```bash
 # 登录获取 token
@@ -144,7 +165,7 @@ curl -X POST https://你的域名/api/v1/memos/<id>/share \
 
 完整契约见 [docs/api.md](api.md)；线上 Swagger UI：`https://你的域名/doc`。
 
-## 6. 常见问题
+## 7. 常见问题
 
 **登录返回 401「用户名或密码错误」**：确认用户名/密码正确；连续 5 次失败会触发限流（60 秒内返回 429），等待窗口过后重试。
 
