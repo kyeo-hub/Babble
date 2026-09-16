@@ -123,7 +123,7 @@ babble "第一条说说"</pre>
 </script>
 </body>
 </html>`;
-  return c.html(html);
+  return c.html(html, 200, { "Cache-Control": "no-cache" });
 });
 
 // 业务路由统一挂在 /api/v1 下
