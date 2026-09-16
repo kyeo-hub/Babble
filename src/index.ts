@@ -30,7 +30,7 @@ app.get("/api/v1/health", (c) => {
   });
 });
 
-/** 根路径主页：服务状态 + CLI 一条命令安装 + 文档入口 */
+/** 根路径主页：服务状态 + CLI 一条命令安装 + 文档入口（实时状态徽标 + 暗色主题） */
 app.get("/", (c) => {
   const origin = new URL(c.req.url).origin;
   const html = `<!DOCTYPE html>
@@ -40,22 +40,32 @@ app.get("/", (c) => {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Babble — 服务在线</title>
 <style>
-  :root { --fg:#1e293b; --muted:#64748b; --bg:#f8fafc; --card:#fff; --accent:#fbbf24; --border:#e2e8f0; }
+  :root {
+    --fg:#1e293b; --muted:#64748b; --bg:#f8fafc; --card:#fff; --border:#e2e8f0;
+    --accent:#b45309; --code-bg:#0f172a; --code-fg:#e2e8f0; --ok:#16a34a; --bad:#dc2626;
+  }
+  html.dark {
+    --fg:#e2e8f0; --muted:#94a3b8; --bg:#0f172a; --card:#1e293b; --border:#334155;
+    --accent:#fbbf24; --code-bg:#020617; --code-fg:#e2e8f0; --ok:#4ade80; --bad:#f87171;
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--fg); line-height:1.6; }
+  body { margin:0; font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--fg); line-height:1.6; transition:background .2s,color .2s; }
   main { max-width:720px; margin:0 auto; padding:48px 20px; }
   h1 { font-size:1.9rem; margin:0 0 4px; }
-  .status { color:#16a34a; font-weight:600; }
+  h1 .theme-toggle { font-size:.85rem; font-weight:400; cursor:pointer; border:1px solid var(--border); background:var(--card); color:var(--muted); border-radius:8px; padding:4px 12px; margin-left:10px; vertical-align:middle; }
+  .badge { display:inline-block; font-size:.85rem; font-weight:600; border-radius:999px; padding:2px 12px; margin-left:10px; vertical-align:middle; background:var(--card); border:1px solid var(--border); color:var(--muted); }
+  .badge.ok { color:var(--ok); border-color:var(--ok); }
+  .badge.bad { color:var(--bad); border-color:var(--bad); }
   .muted { color:var(--muted); font-size:.95rem; }
-  pre { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:14px 16px; overflow-x:auto; font-size:.9rem; }
+  pre { background:var(--code-bg); color:var(--code-fg); border-radius:8px; padding:14px 16px; overflow-x:auto; font-size:.9rem; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px 24px; margin:16px 0; }
-  a { color:#b45309; }
+  a { color:var(--accent); }
   ul { padding-left:20px; margin:8px 0; }
 </style>
 </head>
 <body>
 <main>
-  <h1>📝 Babble <span class="status">● 在线</span></h1>
+  <h1>📝 Babble <span class="badge" id="status">状态检测中…</span><span class="theme-toggle" id="theme-toggle" title="切换主题">🌙</span></h1>
   <p class="muted">基于 Cloudflare Workers 的极简说说服务 —— API + CLI 优先，全托管零运维。</p>
 
   <div class="card">
@@ -84,6 +94,33 @@ babble "第一条说说"</pre>
     </ul>
   </div>
 </main>
+<script>
+  // 主题：localStorage 手动选择优先，否则跟随系统；默认暗色起步
+  (function () {
+    var root = document.documentElement;
+    var saved = localStorage.getItem('babble-theme');
+    var dark = saved ? saved === 'dark' : true; // 默认暗色；系统偏好如需跟随可改为 matchMedia 判断
+    function apply() { root.classList.toggle('dark', dark); document.getElementById('theme-toggle').textContent = dark ? '☀️' : '🌙'; }
+    document.getElementById('theme-toggle').onclick = function () {
+      dark = !dark; localStorage.setItem('babble-theme', dark ? 'dark' : 'light'); apply();
+    };
+    apply();
+  })();
+
+  // 实时状态徽标：探测 /api/v1/health，显示在线状态与延迟
+  (function () {
+    var el = document.getElementById('status');
+    var t0 = performance.now();
+    fetch('${origin}/api/v1/health', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (d) {
+        var ms = Math.round(performance.now() - t0);
+        if (d && d.ok) { el.textContent = '● 在线 ' + ms + 'ms'; el.className = 'badge ok'; }
+        else { el.textContent = '● 异常响应'; el.className = 'badge bad'; }
+      })
+      .catch(function () { el.textContent = '● 不可达'; el.className = 'badge bad'; });
+  })();
+</script>
 </body>
 </html>`;
   return c.html(html);
