@@ -273,20 +273,23 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   });
 
   // GET /file/attachments/{uid}/{filename} —— 附件下载直出（插件调用不带 /api 前缀，两个形态都注册）
-  compat.get(["/file/attachments/:uid/:filename", "/api/v1/file/attachments/:uid/:filename"], async (c) => {
-    const userId = await compatUserId(c);
-    if (userId === null) return c.json({ error: "unauthenticated" }, 401);
-    const uid = c.req.param("uid");
-    const db = createDb(c.env);
-    const meta = await db.select().from(resources).where(eq(resources.uid, uid)).get();
-    if (!meta) return c.json({ error: "not found" }, 404);
-    const obj = await c.env.ASSETS.get(meta.storageKey);
-    if (!obj) return c.json({ error: "not found" }, 404);
-    return c.newResponse(obj.body, 200, {
-      "Content-Type": meta.type,
-      "Cache-Control": "private, max-age=3600",
-    });
-  });
+  const download = (c: any) =>
+    (async () => {
+      const userId = await compatUserId(c);
+      if (userId === null) return c.json({ error: "unauthenticated" }, 401);
+      const uid = c.req.param("uid");
+      const db = createDb(c.env);
+      const meta = await db.select().from(resources).where(eq(resources.uid, uid)).get();
+      if (!meta) return c.json({ error: "not found" }, 404);
+      const obj = await c.env.ASSETS.get(meta.storageKey);
+      if (!obj) return c.json({ error: "not found" }, 404);
+      return c.newResponse(obj.body, 200, {
+        "Content-Type": meta.type,
+        "Cache-Control": "private, max-age=3600",
+      });
+    })();
+  compat.get("/file/attachments/:uid/:filename", download);
+  compat.get("/api/v1/file/attachments/:uid/:filename", download);
 
   app.route("/", compat);
 }
