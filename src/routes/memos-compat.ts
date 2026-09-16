@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import type { Env } from "../types";
 import { createDb } from "../db/client";
@@ -88,7 +88,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   compat.options("*", (c) => c.newResponse(null, 204));
 
   // GET /auth/sessions/current —— 插件启动时探测登录态
-  compat.get("/auth/sessions/current", async (c) => {
+  compat.get("/api/v1/auth/sessions/current", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const user = await createDb(c.env).select().from(users).where(eq(users.id, userId)).get();
@@ -102,7 +102,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
     });
   });
   // POST /auth/sessions —— 插件密码登录（可选支持；返回提示用 accessTokens 更稳）
-  compat.post("/auth/sessions", async (c) => {
+  compat.post("/api/v1/auth/sessions", async (c) => {
     const body = await c.req.json<{ passwordCredentials?: { username: string; password: string } }>().catch(() => null);
     if (!body?.passwordCredentials) return c.json({ error: "invalid request" }, 400);
     return c.json(
@@ -112,7 +112,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   });
 
   // GET /memos —— 列表（pageToken 数字偏移；state/orderBy 受限支持）
-  compat.get("/memos", async (c) => {
+  compat.get("/api/v1/memos", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const db = createDb(c.env);
@@ -144,7 +144,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   });
 
   // POST /memos —— 创建
-  compat.post("/memos", async (c) => {
+  compat.post("/api/v1/memos", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const body = await c.req.json<{ content?: string; visibility?: string }>().catch(() => null);
@@ -167,7 +167,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   });
 
   // GET /memos/{ref} —— 详情
-  compat.get("/memos/:ref", async (c) => {
+  compat.get("/api/v1/memos/:ref", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const ref = parseMemoRef(c.req.param("ref"));
@@ -181,7 +181,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   });
 
   // PATCH /memos/{ref} —— 更新内容/可见性/置顶
-  compat.patch("/memos/:ref", async (c) => {
+  compat.patch("/api/v1/memos/:ref", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const ref = parseMemoRef(c.req.param("ref"));
@@ -205,7 +205,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   });
 
   // DELETE /memos/{ref}
-  compat.delete("/memos/:ref", async (c) => {
+  compat.delete("/api/v1/memos/:ref", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const ref = parseMemoRef(c.req.param("ref"));
@@ -219,7 +219,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   });
 
   // GET /memos/-/tags?filter=... 或 /user/stats 用 —— 全部标签及计数
-  compat.get("/memos/-/tags", async (c) => {
+  compat.get("/api/v1/memos/-/tags", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const db = createDb(c.env);
@@ -239,7 +239,7 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   });
 
   // POST /attachments —— 附件上传（multipart 字段名 file / filename）
-  compat.post("/attachments", async (c) => {
+  compat.post("/api/v1/attachments", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const form = await c.req.formData().catch(() => null);
@@ -272,8 +272,8 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
     return c.json(toCompatAttachment(row));
   });
 
-  // GET /file/attachments/{uid}/{filename} —— 附件下载直出
-  compat.get("/file/attachments/:uid/:filename", async (c) => {
+  // GET /file/attachments/{uid}/{filename} —— 附件下载直出（插件调用不带 /api 前缀，两个形态都注册）
+  compat.get(["/file/attachments/:uid/:filename", "/api/v1/file/attachments/:uid/:filename"], async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const uid = c.req.param("uid");
