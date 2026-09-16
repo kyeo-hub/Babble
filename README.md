@@ -108,8 +108,9 @@ CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... ./scripts/migrate/run-migrati
 单文件零依赖脚本（curl + jq），源码在 `scripts/cli/babble`：
 
 ```bash
-# 安装
-install scripts/cli/babble /usr/local/bin/  # 或 alias babble='~/path/to/babble'
+# 安装（一条命令，脚本由你的 Babble 服务器直出，国内友好）
+curl -fsSL https://bb.kyeo.top/cli -o babble && sh babble --install
+# 也可从仓库直接安装：install scripts/cli/babble /usr/local/bin/
 
 babble login <用户名> <密码>        # 一次性：签发长期 API token 存入 ~/.config/babble/
 babble "今天天气不错"               # 快速发布说说

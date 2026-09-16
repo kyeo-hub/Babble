@@ -135,8 +135,8 @@ curl -X PATCH https://你的域名/api/v1/me \
 日常快速输入推荐用单文件 CLI（零依赖，curl + jq），源码在 `scripts/cli/babble`：
 
 ```bash
-# 安装（一次性）
-install scripts/cli/babble /usr/local/bin/babble
+# 安装（一条命令，脚本由你的 Babble 服务器直出，国内友好）
+curl -fsSL https://bb.kyeo.top/cli -o babble && sh babble --install
 
 babble login <用户名> <密码>       # 签发长期 API token，存 ~/.config/babble/config
 babble "今天天气不错"              # 快速发布说说

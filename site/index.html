@@ -20,10 +20,9 @@
   <section class="quickstart" id="quickstart">
     <h2>安装与使用（CLI）</h2>
     <p>单文件零依赖脚本（仅需 curl + jq），日常发说说就是一条命令。</p>
-    <h3>1️⃣ 安装</h3>
-    <pre><code># 从仓库下载脚本并安装到 PATH
-curl -fsSL https://raw.githubusercontent.com/kyeo-hub/Babble/main/scripts/cli/babble -o babble
-chmod +x babble && install babble /usr/local/bin/   # 或 alias babble='$PWD/babble'</code></pre>
+    <h3>1️⃣ 安装（一条命令）</h3>
+    <pre><code>curl -fsSL https://bb.kyeo.top/cli -o babble &amp;&amp; sh babble --install
+# 脚本由你的 Babble 服务器直出（jsDelivr CDN 回源，国内友好），无需访问 raw.githubusercontent.com</code></pre>
     <h3>2️⃣ 登录（一次性）</h3>
     <pre><code>babble login &lt;用户名&gt; &lt;密码&gt;    # 签发长期 API token，存 ~/.config/babble/</code></pre>
     <h3>3️⃣ 随手发布</h3>

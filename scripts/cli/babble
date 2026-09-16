@@ -157,10 +157,32 @@ babble —— Babble CLI（说说快速发布 / 管理）
 EOF
 }
 
+cmd_install() {
+  # cmd_install：把脚本自身（$0）安装到 PATH
+  local target="${BABBLE_INSTALL_DIR:-/usr/local/bin}"
+  local self="$0"
+  # curl -o 下载后以 `sh babble --install` 执行时 $0 即脚本路径
+  [ -f "$self" ] || self="$(command -v babble 2>/dev/null || true)"
+  [ -n "$self" ] && [ -f "$self" ] || { echo "找不到脚本自身，请用：curl -fsSL <url>/cli -o babble && sh babble --install" >&2; exit 1; }
+  if ! mkdir -p "$target" 2>/dev/null || ! cp "$self" "$target/babble" 2>/dev/null; then
+    echo "无权限写入 $target，改用当前目录：" >&2
+    target="$HOME/.local/bin"
+    mkdir -p "$target"
+    cp "$self" "$target/babble"
+  fi
+  chmod +x "$target/babble"
+  case ":$PATH:" in
+    *":$target:"*) ;;
+    *) echo "⚠️  $target 不在 PATH 中，请在 shell 配置里添加：export PATH=\"$target:\$PATH\"" >&2 ;;
+  esac
+  echo "✅ 已安装到 $target/babble，运行 babble help 开始"
+}
+
 # ---------- 入口 ----------
 load_config
 cmd="${1:-}"; [ $# -gt 0 ] && shift
 case "$cmd" in
+  --install|install-self) cmd_install ;;
   login)   cmd_login "$@" ;;
   server)  cmd_server "$@" ;;
   post)    cmd_post "$@" ;;

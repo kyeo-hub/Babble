@@ -49,6 +49,38 @@ app.doc("/openapi.json", {
 });
 app.get("/doc", swaggerUI({ url: "/openapi.json" }));
 
+/**
+ * GET /cli —— 一条命令安装 CLI：curl -fsSL https://<域名>/cli | sh
+ * 公开路由（不走认证）。脚本内容从 jsDelivr CDN 拉取（国内友好），
+ * 失败时回退 raw.githubusercontent.com。
+ */
+const CLI_SOURCES = [
+  "https://cdn.jsdelivr.net/gh/kyeo-hub/Babble@main/scripts/cli/babble",
+  "https://raw.githubusercontent.com/kyeo-hub/Babble/main/scripts/cli/babble",
+];
+app.get("/cli", async (c) => {
+  for (const src of CLI_SOURCES) {
+    try {
+      const resp = await fetch(src, { redirect: "follow", cf: { cacheTtl: 300 } as never });
+      if (resp.ok) {
+        const text = await resp.text();
+        if (text.startsWith("#!")) {
+          return c.newResponse(text, 200, {
+            "Content-Type": "text/x-shellscript; charset=utf-8",
+            "Cache-Control": "public, max-age=300",
+          });
+        }
+      }
+    } catch {
+      // 尝试下一个源
+    }
+  }
+  return c.json(
+    { error: { code: "UPSTREAM", message: "CLI 脚本源暂不可用，请从 GitHub 仓库 scripts/cli/babble 手动获取" } },
+    502,
+  );
+});
+
 // Durable Object 必须从入口文件导出，wrangler 才能找到
 export { MemoHub } from "./durable/memo-hub";
 
