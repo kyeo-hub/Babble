@@ -41,12 +41,16 @@ const tsToIso = (sec: number | null | undefined) =>
 function toCompatMemo(m: typeof memos.$inferSelect, atts: (typeof resources.$inferSelect)[]) {
   return {
     name: `memos/${m.uid}`,
-    uid: String(m.id),
+    // 数字 id 与原生时间戳一并返回，CLI（原生形状）与插件（v1 形状）共用此结构
+    id: m.id,
+    uid: m.uid,
     state: m.rowStatus === "archived" ? "ARCHIVED" : "NORMAL",
     creator: `users/${m.creatorId}`,
     creatorUsername: "me",
     createTime: tsToIso(m.createdAt),
     updateTime: tsToIso(m.updatedAt),
+    createdTs: m.createdAt,
+    updatedTs: m.updatedAt,
     displayTime: tsToIso(m.createdAt),
     content: m.content,
     visibility: m.visibility === "public" ? "PUBLIC" : "PRIVATE",
@@ -111,19 +115,37 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
     );
   });
 
-  // GET /memos —— 列表（pageToken 数字偏移；state/orderBy 受限支持）
+  // GET /memos —— 同一端点同时服务两种客户端：
+  // 原生 CLI：page/page_size/keyword/tag → 返回 {items,page,page_size,total}
+  // Memos 插件：pageSize/pageToken/state/filter → 返回 {memos,nextPageToken}
   compat.get("/api/v1/memos", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
     const db = createDb(c.env);
-    const pageSize = Math.min(Number(c.req.query("pageSize") ?? c.req.query("page_size") ?? 50) || 50, 200);
-    const offset = Number(c.req.query("pageToken") ?? 0) || 0;
-    const state = c.req.query("state") ?? "NORMAL";
+    const q = c.req.query();
+
+    // 参数归一：原生 page/page_size 与插件 pageSize/pageToken 二选一
+    const nativePage = Number(q.page ?? 0) || 0;
+    const pageSizeRaw = Number(q.page_size ?? q.pageSize ?? 20) || 20;
+    const pageSize = Math.min(pageSizeRaw, 100);
+    const offset = nativePage > 0 ? (nativePage - 1) * pageSize : Number(q.pageToken ?? 0) || 0;
+
     const conditions = [eq(memos.creatorId, userId)];
-    if (state !== "ALL") conditions.push(eq(memos.rowStatus, state === "ARCHIVED" ? "archived" : "normal"));
-    const filter = c.req.query("filter") ?? "";
-    const tagMatch = filter.match(/tag\s*==\s*'([^']+)'/);
-    if (tagMatch) conditions.push(like(memos.content, `%#${tagMatch[1]}%`));
+    // 状态过滤：原生 archived=true/false/all 或插件 state=NORMAL/ARCHIVED/ALL
+    if (q.archived === "true" || q.state === "ARCHIVED") conditions.push(eq(memos.rowStatus, "archived"));
+    else if (q.archived === "false" || (q.state && q.state !== "ALL")) conditions.push(eq(memos.rowStatus, "normal"));
+    // 标签：原生 tag=xxx 或插件 filter=tag=='xxx'
+    const tagMatch = (q.filter ?? "").match(/tag\s*==\s*'([^']+)'/);
+    const tag = q.tag ?? tagMatch?.[1];
+    if (tag) conditions.push(like(memos.content, `%#${tag}%`));
+    // 关键字：原生 keyword 或插件 filter=content.contains("xxx")
+    const contentMatch = (q.filter ?? "").match(/content\.contains\("((?:[^"\\]|\\.)*)"\)/);
+    const keyword = q.keyword ?? contentMatch?.[1]?.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    if (keyword) {
+      for (const term of keyword.split(/\s+/).filter(Boolean)) {
+        conditions.push(like(memos.content, `%${term}%`));
+      }
+    }
     const where = and(...conditions);
     const rows = await db
       .select()
@@ -138,9 +160,16 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
       : [];
     const attMap = new Map<number, (typeof resources.$inferSelect)[]>();
     for (const a of atts) if (a.memoId !== null) (attMap.get(a.memoId) ?? attMap.set(a.memoId, []).get(a.memoId))!.push(a);
-    const nextPageToken =
-      rows.length === pageSize ? String(offset + pageSize) : undefined;
-    return c.json({ memos: rows.map((m) => toCompatMemo(m, attMap.get(m.id) ?? [])), nextPageToken });
+    const items = rows.map((m) => toCompatMemo(m, attMap.get(m.id) ?? []));
+    const totalRow = await db.select({ n: sql<number>`count(*)` }).from(memos).where(where).get();
+    const total = totalRow?.n ?? 0;
+
+    if (nativePage > 0 || q.page_size !== undefined) {
+      // 原生形状（CLI）
+      return c.json({ items, page: nativePage || 1, page_size: pageSize, total });
+    }
+    // 插件形状
+    return c.json({ memos: items, nextPageToken: rows.length === pageSize ? String(offset + pageSize) : undefined });
   });
 
   // GET /users/me —— 插件 v0.26 连接测试的首个探测端点
