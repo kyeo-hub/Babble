@@ -164,8 +164,14 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
     const totalRow = await db.select({ n: sql<number>`count(*)` }).from(memos).where(where).get();
     const total = totalRow?.n ?? 0;
 
-    if (nativePage > 0 || q.page_size !== undefined) {
-      // 原生形状（CLI）
+    // 原生形状判定：CLI 请求带 page/page_size/keyword/tag 任一；
+    // 插件请求带 pageSize/pageToken/state/filter（或不带任何查询参数）
+    const isNative =
+      q.page !== undefined ||
+      q.page_size !== undefined ||
+      q.keyword !== undefined ||
+      q.tag !== undefined;
+    if (isNative) {
       return c.json({ items, page: nativePage || 1, page_size: pageSize, total });
     }
     // 插件形状
