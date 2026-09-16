@@ -8,6 +8,7 @@ import { shareRoutes } from "./routes/share";
 import { realtimeRoutes } from "./routes/realtime";
 import { importRoutes } from "./routes/importer";
 import { reportRoutes } from "./routes/report";
+import { memosCompatRoutes } from "./routes/memos-compat";
 
 const app = new OpenAPIHono<AppEnv>();
 
@@ -125,6 +126,10 @@ babble "第一条说说"</pre>
 </html>`;
   return c.html(html, 200, { "Cache-Control": "no-cache" });
 });
+
+// Memos v1 兼容层（浏览器插件等第三方客户端）：必须挂在 /api/v1 子应用之前，
+// 同名路径（/api/v1/memos 等）由兼容层优先响应
+memosCompatRoutes(app);
 
 // 业务路由统一挂在 /api/v1 下
 const api = new OpenAPIHono<AppEnv>();
