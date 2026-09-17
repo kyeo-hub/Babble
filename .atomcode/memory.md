@@ -1,0 +1,1 @@
+- 迁移实测（babble migrate 对旧站 memos.kyeo.top）暂缓：旧站已下线（探测 530），用户无法短期内开启；待旧站恢复后由用户用 cli-v1.2.0+ 实测 `babble migrate https://memos.kyeo.top <token> --limit 10` 并回报报告。此前 160 条 memo 已导入（幂等），实测重点是补齐当时跳过的外部存储资源。

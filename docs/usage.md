@@ -26,26 +26,7 @@ Babble 是一个基于 **Cloudflare Workers** 的极简说说/笔记服务（mem
 
 ## 2. 后端部署
 
-### 一键部署（GitHub Actions）
-
-1. **Fork** 本仓库到你的 GitHub 账号；
-2. 在 [Cloudflare](https://dash.cloudflare.com/profile/api-tokens) 创建 API Token（权限：Workers Scripts:Edit、D1:Edit、R2:Edit、KV:Edit、Workers Routes:Edit；Zone 资源选 All zones）；
-3. 在仓库 **Settings → Secrets and variables → Actions** 配置：
-
-   | 名称 | 类型 | 说明 |
-   |---|---|---|
-   | `CLOUDFLARE_API_TOKEN` | Secret | Cloudflare API Token |
-   | `CLOUDFLARE_ACCOUNT_ID` | Secret | Cloudflare 账号 ID |
-   | `SEED_ADMIN_PASSWORD` | Secret | 首启管理员密码 |
-   | `SEED_ADMIN_USERNAME` | Variable | 首启管理员用户名（默认 admin） |
-   | `JWT_SECRET` | Secret | JWT 签名密钥（可用 `openssl rand -hex 32` 生成） |
-
-4. **Actions → Deploy to Cloudflare Workers → Run workflow**；
-5. 完成后访问 `https://babble.<你的用户名>.workers.dev/api/v1/health`，应返回 `{"ok":true,...}`。
-
-### 自定义域名
-
-在 `wrangler.jsonc` 取消注释 `routes` 并改为你的域名（如 `bb.kyeo.top`，需已托管到 Cloudflare），重新部署即可自动绑定。
+> 完整部署步骤（Secrets 表格 / 自定义域名 / 本地开发）以 [README · 一键部署](../README.md#一键部署别人-fork-你的仓库) 为准，此处不重复。
 
 ### 修改管理员账号
 

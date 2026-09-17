@@ -134,6 +134,14 @@
 
 按数字 id 或 uid 均可。→ `{ ...Memo }`（含 resources）。
 
+### GET `/memos/export` — 全量导出
+
+| 参数 | 说明 |
+|---|---|
+| `format` | `json`（默认，`{exportedAt,total,memos:[...]}`）/ `md`（Markdown 文本，含置顶/归档标记与附件引用路径） |
+
+含归档 memo；不含资源二进制（资源以元数据与 `/api/v1/resources/:id/file` 引用路径导出）。响应带 `Content-Disposition` 附件头。
+
 ### PATCH `/memos/:id` — 更新
 
 请求（任意可省字段）：`{"content":"…","visibility":"public","pinned":true,"rowStatus":"archived"}` → `{ ...Memo }`。
@@ -220,13 +228,9 @@
 
 事件按 memo 的 `visibility` 过滤，单用户阶段即全量广播。
 
-## 9. Telegram bot Webhook
+## 9. Telegram bot Webhook（未实现，规划保留）
 
-### POST `/webhooks/telegram`（无需业务鉴权，用 secret token 校验）
-
-Telegram 更新（新消息 → 创建 memo；`/list` 等命令按需扩展）。出站推送由 bot 主动调 Telegram API。
-
-配置（环境变量）：`TELEGRAM_BOT_TOKEN`、`TELEGRAM_CHAT_ID`（可选白名单）、`TELEGRAM_WEBHOOK_SECRET`。
+> `POST /webhooks/telegram` 尚未实现（路线图 P9）。规划：新消息 → 创建 memo，`TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` / `TELEGRAM_WEBHOOK_SECRET` 配置，出站推送由 bot 主动调 Telegram API。
 
 ## 10. 错误码速查
 

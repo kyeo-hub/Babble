@@ -9,15 +9,16 @@
 - 🔒 可见性：public / private；公开分享短链
 - 📎 图片与附件（R2 存储）
 - ⚡ 实时推送（WebSocket / SSE，Durable Objects）
-- 🤖 Telegram bot webhook 双向对接
+- 🔌 Memos v1 兼容层：memos-browers-plugin 等第三方客户端即插即用
 - 📦 一键部署：fork 后填 3 个 Secret，GitHub Actions 自动完成 D1/KV/R2 创建与部署
 
 技术栈：**Hono + Drizzle ORM + D1 + R2 + KV + Durable Objects**，TypeScript 全栈，OpenAPI 契约驱动（`GET /openapi.json`）。
 
 ## 文档
 
-- 📖 [使用文档](docs/usage.md) —— 部署 / APP / 迁移 / API 速查 / 常见问题
+- 📖 [使用文档](docs/usage.md) —— 部署 / 数据迁移 / CLI / 浏览器插件 / API 速查 / 常见问题
 - 📐 [API 契约](docs/api.md) —— 全部接口定义（线上 Swagger UI：`/doc`）
+- ⬇️ [Releases](https://github.com/kyeo-hub/Babble/releases) —— CLI 各平台二进制（tag `cli-v*`）
 
 ## 快速开始（本地开发）
 
@@ -68,41 +69,16 @@ npm run db:migrate:local
 2. 设置 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` 环境变量，然后 `npm run deploy`（或重新跑 Actions workflow）。
    `npm run deploy` 会先自动创建/复用 D1/KV/R2 并生成部署配置。
 
-## memos 数据迁移（双路径）
+## memos 数据迁移
 
-将已有 memos 数据迁移到 Babble（工具位于 `scripts/migrate/`）：
-
-### 第 1 步：提取（二选一）
+将旧 memos 站数据迁到 Babble，**推荐 CLI 一键迁移**（自动探测旧站 API 形态、资源转存 R2、按 uid 幂等可重跑）：
 
 ```bash
-# 路径 A：服务器上有 memos.db（SQLite 直转，本地存储的资源会一并提取）
-node scripts/migrate/extract-sqlite.mjs /path/to/memos.db
-
-# 路径 B：只有账号（托管版/外部存储资源），用 API 拉取（token 在 memos「设置 → API」生成）
-# 方式 B：从旧站 API 拉取（或直接 babble migrate 一键完成）
-babble migrate https://memos.kyeo.top <memos-token>
+babble migrate https://memos.example.com <旧站token> --limit 10   # 先试迁 10 条
+babble migrate https://memos.example.com <旧站token>              # 确认后全量
 ```
 
-输出：`scripts/migrate/out/export.json`（中间格式）+ `out/resources/`（资源文件）。
-
-### 第 2 步：导入（生成 SQL 与 R2 上传脚本）
-
-```bash
-# 目标库已有数据时用大 offset 避免 id 冲突（如 100000）
-# 导入由 babble migrate 自动完成，无需单独执行
-```
-
-输出：`out/migrate.sql` + `out/upload-r2.sh`。
-
-### 第 3 步：执行（需 Cloudflare 凭据）
-
-```bash
-
-```
-
-脚本会：应用 D1 迁移 → 上传 R2 资源 → 输出一致性报告（计数 + 时间戳抽样，与源核对）。
-
-> 说明：`protected` 可见性会映射为 `private`；`--id-offset` 需与导入时一致；建议先迁到空库或用大 offset 隔离。老站验证通过前保持运行，不要急于下线。
+SQLite 直转（有 `memos.db` 文件时）等其它路径见 [使用文档 · 数据迁移](docs/usage.md#3-数据迁移)。
 
 ## CLI（推荐日常入口）
 
@@ -117,6 +93,7 @@ babble login <用户名> <密码>        # 一次性：签发长期 API token
 babble "今天天气不错"               # 快速发布说说
 echo "管道内容" | babble post       # stdin 发布
 babble list / search / show / edit / pin / archive / delete / upload
+babble tags / whoami / export [--md]     # 标签 / 令牌信息 / 全量导出
 babble migrate <旧站URL> <旧站token>   # 一键迁移旧 memos 站（幂等，可重跑）
 ```
 
@@ -124,23 +101,25 @@ Go 版从 [Releases](https://github.com/kyeo-hub/Babble/releases) 下载（tag `
 
 ## Android APP（已移除）
 
-> APP 已从仓库移除（历史版本 v0.3.5 仍可在 [Releases](https://github.com/kyeo-hub/Babble/releases/tag/v0.3.5) 下载，但不再维护）。日常使用推荐 [CLI](#cli推荐日常入口)；数据迁移用脚本路径（见 [使用文档](docs/usage.md)）。
+> APP 已从仓库移除（历史版本 v0.3.5 仍可在 [Releases](https://github.com/kyeo-hub/Babble/releases/tag/v0.3.5) 下载，但不再维护）。日常使用推荐 [CLI](#cli推荐日常入口)。
 
 ## 项目结构
 
 ```
 src/
-├── index.ts              # Hono 入口 + /doc + /openapi.json
+├── index.ts              # Hono 入口：主页 / /cli / /doc + Memos 兼容层挂载
 ├── types.ts              # Env 绑定与通用类型
 ├── db/                   # Drizzle schema + client
-├── routes/               # auth / memos / tags / resources / share / ws（P1+ 实现）
-└── durable/memo-hub.ts   # 实时推送 DO（P4 实现）
+├── routes/               # auth / memos / tags / resources / share / realtime / importer / memos-compat
+├── lib/                  # auth / jwt / password / hash / tags / realtime
+└── durable/memo-hub.ts   # 实时推送 DO
 migrations/               # D1 迁移 SQL
-docs/
-├── PLAN.md               # 总体方案
-└── api.md                # API 契约（v1）
-scripts/deploy/           # 一键部署基建保障脚本
-.github/workflows/        # Deploy workflow
+cmd/babble/               # Go CLI（单文件，六平台发布）
+scripts/
+├── deploy/               # 一键部署脚本（ensure-infra / build-config / deploy.sh）
+└── cli/                  # bash 版 CLI（macOS/Linux 一条命令安装）
+tests/                    # vitest 单测（CI 门）
+.github/workflows/        # deploy / cli-release / pages / reset-admin
 ```
 
 ## 路线图
@@ -150,12 +129,13 @@ scripts/deploy/           # 一键部署基建保障脚本
 | P0 | 工程骨架 + API 契约 + 一键部署 | ✅ |
 | P1 | 认证 + memo CRUD + 分页 | ✅ |
 | P2 | 资源上传（R2） | ✅ |
-| P3 | 标签 / 分享 / 搜索增强 | ✅ |
+| P3 | 标签 / 分享 / 搜索 | ✅ |
 | P4 | 实时推送（WS/SSE）+ 登录限流 | ✅ |
-| P5 | 批量导入接口 + Android APP（已移除） | ✅ |
-| P6 | memos 数据迁移（脚本双路径） | ✅ |
-| P7 | ~~APP CI/CD~~（随 APP 移除） | — |
-| P8 | Telegram bot | ⏳ |
+| P5 | 批量导入接口 | ✅ |
+| P6 | memos 数据迁移（CLI migrate + SQLite 直转脚本） | ✅ |
+| P7 | Memos v1 兼容层（浏览器插件）| ✅ |
+| P8 | Go CLI 六平台发布 + 全量导出 | ✅ |
+| P9 | FTS5 全文搜索 / Cron 清理 / Telegram bot | ⏳ |
 
 ## License
 
