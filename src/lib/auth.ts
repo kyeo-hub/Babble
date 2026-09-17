@@ -28,9 +28,19 @@ export const authMiddleware = createMiddleware<{
   let userId: number | null = null;
 
   if (authHeader?.startsWith("Bearer ")) {
-    const payload = await verifyJwt(authHeader.slice(7), c.env.JWT_SECRET);
+    const cred = authHeader.slice(7);
+    const payload = await verifyJwt(cred, c.env.JWT_SECRET);
     if (payload && payload.type === "access") {
       userId = payload.sub;
+    } else {
+      // 回退：Bearer 凭据也可能是长期 API token（CLI/兼容层客户端统一用 Bearer）
+      const tokenHash = await sha256Hex(cred);
+      const row = await db
+        .select({ userId: apiTokens.userId })
+        .from(apiTokens)
+        .where(eq(apiTokens.tokenHash, tokenHash))
+        .get();
+      if (row) userId = row.userId;
     }
   } else if (apiToken) {
     const tokenHash = await sha256Hex(apiToken);
