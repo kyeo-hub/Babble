@@ -40,7 +40,15 @@ export const authMiddleware = createMiddleware<{
         .from(apiTokens)
         .where(eq(apiTokens.tokenHash, tokenHash))
         .get();
-      if (row) userId = row.userId;
+      if (row) {
+        userId = row.userId;
+        await db
+          .update(apiTokens)
+          .set({ lastUsedAt: Math.floor(Date.now() / 1000) })
+          .where(eq(apiTokens.tokenHash, tokenHash))
+          .run()
+          .catch(() => {});
+      }
     }
   } else if (apiToken) {
     const tokenHash = await sha256Hex(apiToken);
