@@ -25,6 +25,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Unit tests
+        run: npx vitest run
+
       - name: Deploy (ensure infra / migrations / secrets / deploy)
         run: ./scripts/deploy/deploy.sh
         env:
