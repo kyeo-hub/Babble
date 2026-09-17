@@ -33,5 +33,3 @@ jobs:
           SEED_ADMIN_USERNAME: ${{ vars.SEED_ADMIN_USERNAME }}
           SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          REPORT_REPO: ${{ vars.REPORT_REPO }}
-          REPORT_ISSUE_TOKEN: ${{ secrets.REPORT_ISSUE_TOKEN }}
