@@ -79,7 +79,8 @@ npm run db:migrate:local
 node scripts/migrate/extract-sqlite.mjs /path/to/memos.db
 
 # 路径 B：只有账号（托管版/外部存储资源），用 API 拉取（token 在 memos「设置 → API」生成）
-node scripts/migrate/extract-api.mjs --url https://memos.kyeo.top --token <memos-token>
+# 方式 B：从旧站 API 拉取（或直接 babble migrate 一键完成）
+babble migrate https://memos.kyeo.top <memos-token>
 ```
 
 输出：`scripts/migrate/out/export.json`（中间格式）+ `out/resources/`（资源文件）。
@@ -88,7 +89,7 @@ node scripts/migrate/extract-api.mjs --url https://memos.kyeo.top --token <memos
 
 ```bash
 # 目标库已有数据时用大 offset 避免 id 冲突（如 100000）
-node scripts/migrate/import.mjs --id-offset 100000
+# 导入由 babble migrate 自动完成，无需单独执行
 ```
 
 输出：`out/migrate.sql` + `out/upload-r2.sh`。
@@ -96,7 +97,7 @@ node scripts/migrate/import.mjs --id-offset 100000
 ### 第 3 步：执行（需 Cloudflare 凭据）
 
 ```bash
-CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... ./scripts/migrate/run-migration.sh
+
 ```
 
 脚本会：应用 D1 迁移 → 上传 R2 资源 → 输出一致性报告（计数 + 时间戳抽样，与源核对）。

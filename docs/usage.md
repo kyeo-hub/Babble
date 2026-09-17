@@ -82,36 +82,13 @@ babble migrate https://memos.example.com <旧站token>
 
 ### 外部存储资源补迁
 
-当直转迁移有资源被跳过（无本地 blob，存于磁盘或 S3）时，用补迁工具从旧站 API 提取并增量导入：
+当资源存于旧站磁盘/S3（无本地 blob）时，直接用 CLI 一键迁移补齐（会从旧站 API 拉取全部资源）：
 
-1. 在旧 memos「设置 → API」生成 token（建议先轮换），提取全部资源（含外部存储）：
+```bash
+babble migrate https://memos.example.com <旧站token>
+```
 
-   ```bash
-   node scripts/migrate/extract-api.mjs --url https://memos.kyeo.top --token <新token> --resources-only
-   # 输出：scripts/migrate/out/backfill-resources.json + out/resources/
-   ```
-
-2. 导出新站 uid→id 映射（每行 `id,uid`，保存为 `out/memos-ids.csv`）：
-
-   ```bash
-   npx wrangler d1 execute babble --remote --command="SELECT id, uid FROM memos"
-   ```
-
-3. 生成增量导入 SQL 与 R2 上传脚本：
-
-   ```bash
-   node scripts/migrate/import-resources.mjs --memos out/memos-ids.csv --old-base https://memos.kyeo.top
-   # 输出：out/backfill.sql + out/backfill-r2.sh
-   ```
-
-4. 应用（需 Cloudflare 凭据）：
-
-   ```bash
-   wrangler d1 execute babble --remote --file=scripts/migrate/out/backfill.sql
-   bash scripts/migrate/out/backfill-r2.sh
-   ```
-
-说明：`INSERT OR IGNORE` 按资源 uid 幂等去重；脚本同时把 memo 内容里的旧图片引用（`/o/r/<uid>`、`/file/<uid>` 及旧站完整 URL）重写为 `/api/v1/resources/<新id>/file`，图片在新站即可显示。
+已导入的 memo 按 uid 幂等跳过，只补缺失的资源。若 memo 内容里还残留旧图片链接（`/o/r/<uid>`、`/file/<uid>`），资源导入后手动替换为新站地址 `https://<你的域名>/api/v1/resources/<新id>/file`（可在 D1 控制台 `SELECT id, uid FROM resources` 查映射）。
 
 ## 4. CLI
 
@@ -200,6 +177,6 @@ curl -X POST https://你的域名/api/v1/memos/<id>/share \
 
 **反馈与问题上报**：直接在仓库 [New Issue](https://github.com/kyeo-hub/Babble/issues/new) 提交，附上 CLI 报错输出或 API 响应。
 
-**迁移提示跳过外部存储资源**：这些资源文件不在 memos.db 内（存于服务器磁盘/S3），需用脚本的 API 提取路径（`extract-api.mjs`）配合旧站 token 补迁。
+**迁移提示跳过外部存储资源**：这些资源文件不在 memos.db 内（存于服务器磁盘/S3），用 `babble migrate <旧站> <token>` 从旧站 API 补迁。
 
 **数据备份**：可用 `wrangler d1 export` 导出 D1；资源文件在 R2 桶中（建议定期备份）。

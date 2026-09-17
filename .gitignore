@@ -15,3 +15,6 @@ babble-debug.apk
 memos_prod.db
 *.log
 .DS_Store
+
+# 迁移脚本产物
+scripts/migrate/out/

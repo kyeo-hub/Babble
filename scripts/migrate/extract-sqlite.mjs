@@ -8,7 +8,7 @@
  *              resource(id, uid, memo_id, creator_id, filename, blob, type, size, ...)
  * 说明：
  *  - memos 本地存储的资源在 resource.blob（BLOB）字段，直转可直接提取；
- *  - 外部存储（S3 等）资源无 blob，需改用 extract-api.mjs（路径 B）提取。
+ *  - 外部存储（S3 等）资源无 blob，用 babble migrate <旧站> <token> 从旧站 API 补迁。
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -81,7 +81,7 @@ if (tables.includes("resource")) {
   for (const row of queryRows("SELECT * FROM resource ORDER BY id")) {
     const blob = resHasBlob ? row.blob : null;
     if (!(blob instanceof Uint8Array) || blob.length === 0) {
-      console.warn(`跳过资源 #${row.id}（无本地 blob，可能为外部存储，请改用 extract-api.mjs）`);
+      console.warn(`跳过资源 #${row.id}（无本地 blob，可能为外部存储，请用 babble migrate 从旧站 API 补迁）`);
       continue;
     }
     const name = resHasFilename ? String(row.filename ?? `resource_${row.id}`) : `resource_${row.id}`;
@@ -115,4 +115,4 @@ const exportData = {
 };
 writeJson(EXPORT_JSON, exportData);
 console.log(`完成：${memos.length} 条 memo、${resources.length} 个资源 → ${EXPORT_JSON}`);
-console.log("提示：protected 可见性导入时会映射为 private；外部存储资源请用 extract-api.mjs。");
+console.log("提示：protected 可见性导入时会映射为 private；外部存储资源请用 babble migrate 补迁。");
