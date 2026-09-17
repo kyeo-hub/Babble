@@ -334,6 +334,80 @@ func cmdUpload(cfg Config, args []string) {
 	fmt.Printf("%v\t%s\t%s\n", jnum(data, "id"), jstr(data, "url"), jstr(data, "name"))
 }
 
+func cmdTags(cfg Config, args []string) {
+	raw := apiCall(cfg, "GET", "/memos/-/tags", nil, "")
+	type tagItem struct {
+		Name  string `json:"name"`
+		Count int    `json:"count"`
+	}
+	var resp struct {
+		Tags []tagItem `json:"tags"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		fatalf("解析失败：%v", err)
+	}
+	for _, t := range resp.Tags {
+		fmt.Printf("%s\t%d\n", t.Name, t.Count)
+	}
+}
+
+func cmdWhoami(cfg Config, args []string) {
+	fmt.Println("服务器：", cfg.Server)
+	if cfg.Token == "" {
+		fmt.Println("token：未配置（先 babble login）")
+		return
+	}
+	raw := apiCall(cfg, "GET", "/auth/tokens", nil, "")
+	var list struct {
+		Items []struct {
+			Id         int    `json:"id"`
+			Name       string `json:"name"`
+			CreatedTs  int64  `json:"createdTs"`
+			LastUsedTs any    `json:"lastUsedTs"`
+		} `json:"items"`
+	}
+	_ = json.Unmarshal(raw, &list)
+	fmt.Println("token：已配置；服务端登记的令牌：")
+	for _, t := range list.Items {
+		used := "-"
+		if s, ok := t.LastUsedTs.(float64); ok && s > 0 {
+			used = time.Unix(int64(s), 0).Format("2006-01-02 15:04")
+		}
+		fmt.Printf("  #%d %s（创建 %s，最近使用 %s）\n", t.Id, t.Name,
+			time.Unix(t.CreatedTs, 0).Format("2006-01-02"), used)
+	}
+}
+
+func cmdExport(cfg Config, args []string) {
+	format := "json"
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--md" {
+			format = "md"
+		}
+	}
+	url := strings.TrimRight(cfg.Server, "/") + "/api/v1/memos/export?format=" + format
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fatal("构造请求失败：%v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		fatal("导出失败：%v", err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		fatalf("导出失败（%d）：%s", resp.StatusCode, truncate(string(data), 200))
+	}
+	name := fmt.Sprintf("babble-export-%d.%s", time.Now().Unix(), format)
+	if err := os.WriteFile(name, data, 0o600); err != nil {
+		fatal("写入文件失败：%v", err)
+	}
+	fmt.Printf("✅ 已导出 %s（%d bytes）\n", name, len(data))
+}
+
 func cmdHelp() {
 	fmt.Print(`babble —— Babble CLI（Go 版，说说快速发布 / 管理）
 
@@ -352,6 +426,9 @@ func cmdHelp() {
   babble upload <文件> [memoId]    上传资源
   babble migrate <旧站URL> <token> [--limit N] [--dry-run]
                                    一键迁移旧 memos 站数据
+  babble tags                      标签列表与计数
+  babble export [--md]             全量导出（默认 JSON，--md 为 Markdown）
+  babble whoami                    查看服务器与令牌信息
   babble help                      本帮助
 
 配置：Windows 存 %APPDATA%\babble\config.json；macOS/Linux 存
@@ -395,6 +472,12 @@ func main() {
 		cmdUpload(cfg, args)
 	case "migrate":
 		cmdMigrate(cfg, args)
+	case "tags":
+		cmdTags(cfg, args)
+	case "whoami":
+		cmdWhoami(cfg, args)
+	case "export":
+		cmdExport(cfg, args)
 	case "help", "-h", "--help", "":
 		cmdHelp()
 	default:

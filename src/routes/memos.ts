@@ -344,4 +344,73 @@ export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
     await notifyMemoChange(c.env, "memo.updated", toMemoJson(row));
     return c.json(toMemoJson(row), 200);
   });
+
+  // GET /memos/export —— 全量导出（JSON 或 Markdown，?format=md）
+  const exportMemosRoute = createRoute({
+    method: "get",
+    path: "/memos/export",
+    request: {
+      query: z.object({
+        format: z.enum(["json", "md"]).default("json"),
+      }),
+    },
+    responses: {
+      200: {
+        description: "全量导出（含归档；不含资源二进制，资源字段为元数据与引用路径）",
+        content: {
+          "application/json": { schema: z.object({ exportedAt: z.number(), total: z.number(), memos: z.array(memoJsonSchema) }) },
+          "text/markdown": { schema: z.string() },
+        },
+      },
+      401: { description: "未认证", content: { "application/json": { schema: errorSchema } } },
+    },
+  });
+  app.openapi(exportMemosRoute, async (c) => {
+    const { format } = c.req.valid("query");
+    const db = createDb(c.env);
+    const rows = await db
+      .select()
+      .from(memos)
+      .where(eq(memos.creatorId, c.get("userId")))
+      .orderBy(desc(memos.createdAt))
+      .all();
+    const resRows = rows.length
+      ? await db
+          .select()
+          .from(resourcesTable)
+          .where(inArray(resourcesTable.memoId, rows.map((r) => r.id)))
+          .all()
+      : [];
+    const resMap = new Map<number, (typeof resourcesTable.$inferSelect)[]>();
+    for (const r of resRows) {
+      if (r.memoId !== null) {
+        const list = resMap.get(r.memoId) ?? [];
+        list.push(r);
+        resMap.set(r.memoId, list);
+      }
+    }
+    const items = rows.map((m) => toMemoJson(m, resMap.get(m.id) ?? []));
+    const exportedAt = Math.floor(Date.now() / 1000);
+
+    if (format === "md") {
+      const parts: string[] = [`# Babble 导出（${new Date(exportedAt * 1000).toISOString()}，共 ${items.length} 条）`, ""];
+      for (const m of items) {
+        const ts = new Date(m.createdTs * 1000).toISOString().slice(0, 16).replace("T", " ");
+        const flags = [m.pinned ? "📌" : "", m.rowStatus === "archived" ? "🗄" : ""].filter(Boolean).join("");
+        parts.push(`## ${ts} ${flags}#m${m.id}`.trimEnd(), "", m.content, "");
+        if (m.resources.length > 0) {
+          for (const r of m.resources) parts.push(`- 附件：${r.name}（${r.type}）\`${r.url}\``);
+          parts.push("");
+        }
+        parts.push("---", "");
+      }
+      return c.newResponse(parts.join("\n"), 200, {
+        "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": `attachment; filename="babble-export-${exportedAt}.md"`,
+      });
+    }
+    return c.json({ exportedAt, total: items.length, memos: items }, 200, {
+      "Content-Disposition": `attachment; filename="babble-export-${exportedAt}.json"`,
+    });
+  });
 }
