@@ -116,6 +116,7 @@ babble login <用户名> <密码>        # 一次性：签发长期 API token
 babble "今天天气不错"               # 快速发布说说
 echo "管道内容" | babble post       # stdin 发布
 babble list / search / show / edit / pin / archive / delete / upload
+babble migrate <旧站URL> <旧站token>   # 一键迁移旧 memos 站（幂等，可重跑）
 ```
 
 Go 版从 [Releases](https://github.com/kyeo-hub/Babble/releases) 下载（tag `cli-v*`，附 sha256sums.txt 校验）。

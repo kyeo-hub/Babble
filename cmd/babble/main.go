@@ -350,6 +350,8 @@ func cmdHelp() {
   babble archive <id>              归档切换
   babble delete <id>               删除
   babble upload <文件> [memoId]    上传资源
+  babble migrate <旧站URL> <token> [--limit N] [--dry-run]
+                                   一键迁移旧 memos 站数据
   babble help                      本帮助
 
 配置：Windows 存 %APPDATA%\babble\config.json；macOS/Linux 存
@@ -391,6 +393,8 @@ func main() {
 		cmdDelete(cfg, args)
 	case "upload":
 		cmdUpload(cfg, args)
+	case "migrate":
+		cmdMigrate(cfg, args)
 	case "help", "-h", "--help", "":
 		cmdHelp()
 	default:

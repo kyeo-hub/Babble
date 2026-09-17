@@ -60,11 +60,25 @@ curl -X PATCH https://你的域名/api/v1/me \
 
 ## 3. 数据迁移
 
-> 迁移走脚本路径（CLI 不提供 memos.db 解析）。
+### CLI 一键迁移（推荐）
 
-### 脚本迁移（双路径）
+```bash
+babble migrate <旧站地址> <旧站token> [--limit N] [--dry-run]
 
-适用于服务端/无头场景，见 [README 迁移章节](../README.md#memos-数据迁移双路径)：`scripts/migrate/` 支持 **SQLite 直转**（读 memos.db）与 **API 拉取**（旧站 token）两种提取方式，导入 D1 并上传 R2，附一致性报告。
+# 示例：先试迁 50 条
+babble migrate https://memos.example.com <旧站token> --limit 50
+# 确认无误后全量
+babble migrate https://memos.example.com <旧站token>
+```
+
+- 旧站 token：旧 memos「设置 → API」生成的 Access Token（建议迁移后轮换）；
+- 自动探测旧站 API 形态（v1 gRPC-Gateway / legacy v0.18~v0.21）；
+- memo 按原 uid 幂等导入（重跑只补缺失的，不会重复）；资源（图片/附件）自动下载并转存 R2；
+- `--dry-run` 只统计不写入；资源总量超批上限（~36MB base64/批）的自动跳过并提示。
+
+### 脚本迁移（备选，含资源引用重写）
+
+需要把旧图片链接（`/o/r/<uid>`、`/file/<uid>`）重写为新站地址，或服务端批量操作时，用 `scripts/migrate/`（SQLite 直转 / API 拉取双路径），详见 [README 迁移章节](../README.md#memos-数据迁移双路径)。
 
 ### 外部存储资源补迁
 
