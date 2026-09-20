@@ -66,6 +66,91 @@ async function findMemo(db: ReturnType<typeof createDb>, userId: number, idParam
 }
 
 export function memosRoutes(app: OpenAPIHono<AppEnv>): void {
+  // GET /timeline —— 公开说说页数据源（免认证，只读 public memo；带 CORS 供网页跨域）
+  const timelineRoute = createRoute({
+    method: "get",
+    path: "/timeline",
+    request: {
+      query: z.object({
+        page: z.coerce.number().int().min(1).default(1),
+        page_size: z.coerce.number().int().min(1).max(50).default(20),
+        tag: z.string().optional(),
+        keyword: z.string().optional(),
+      }),
+    },
+    responses: {
+      200: {
+        description: "公开 memo 时间线（仅 visibility=public 且未归档）",
+        content: {
+          "application/json": {
+            schema: z.object({
+              total: z.number(),
+              page: z.number(),
+              page_size: z.number(),
+              items: z.array(memoJsonSchema),
+            }),
+          },
+        },
+      },
+    },
+  });
+  app.openapi(timelineRoute, async (c) => {
+    const q = c.req.valid("query");
+    const db = createDb(c.env);
+    const conditions = [eq(memos.visibility, "public"), eq(memos.rowStatus, "normal")];
+    if (q.tag) conditions.push(like(memos.content, `%#${q.tag}%`));
+    if (q.keyword) {
+      for (const term of q.keyword.split(/\s+/).filter(Boolean)) {
+        conditions.push(like(memos.content, `%${term}%`));
+      }
+    }
+    const where = and(...conditions);
+    const totalRow = await db.select({ n: sql<number>`count(*)` }).from(memos).where(where).get();
+    const rows = await db
+      .select()
+      .from(memos)
+      .where(where)
+      .orderBy(desc(memos.pinned), desc(memos.createdAt))
+      .limit(q.page_size)
+      .offset((q.page - 1) * q.page_size)
+      .all();
+    const resRows = rows.length
+      ? await db
+          .select()
+          .from(resourcesTable)
+          .where(inArray(resourcesTable.memoId, rows.map((r) => r.id)))
+          .all()
+      : [];
+    const resMap = new Map<number, (typeof resourcesTable.$inferSelect)[]>();
+    for (const r of resRows) {
+      if (r.memoId !== null) {
+        const list = resMap.get(r.memoId) ?? [];
+        list.push(r);
+        resMap.set(r.memoId, list);
+      }
+    }
+    const origin = new URL(c.req.url).origin;
+    const items = rows.map((m) => {
+      const j = toMemoJson(m, resMap.get(m.id) ?? []);
+      // 公开端点不暴露内部 id，统一用 uid 定位；资源指向公开直出路径（免鉴权）
+      return {
+        ...j,
+        resources: j.resources.map((r) => ({
+          ...r,
+          url: `${origin}/api/v1/public/resources/${r.id}/file`,
+        })),
+      };
+    });
+    return c.json(
+      { total: totalRow?.n ?? 0, page: q.page, page_size: q.page_size, items },
+      200,
+      {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60",
+      },
+    );
+  });
+
   // 全部 memo 路由需认证
   app.use("/memos", authMiddleware);
   app.use("/memos/*", authMiddleware);

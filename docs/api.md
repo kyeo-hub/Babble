@@ -134,6 +134,19 @@
 
 按数字 id 或 uid 均可。→ `{ ...Memo }`（含 resources）。
 
+### GET `/timeline` — 公开说说时间线（免认证）
+
+说说页/自建网页的数据源：只返回 `visibility=public` 且未归档的 memo，按置顶+时间倒序，带 CORS（`*`）与 60s 缓存。
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `page` | 1 | 页码 |
+| `page_size` | 20 | 每页 1-50 |
+| `tag` | — | 按标签过滤（`#tag` 近似匹配） |
+| `keyword` | — | 多关键字 AND |
+
+→ `{total, page, page_size, items: [Memo]}`；资源 `url` 为绝对地址，可直接 `<img>` 引用（公开 memo 的附件走公开直出，无需鉴权头）。
+
 ### GET `/memos/export` — 全量导出
 
 | 参数 | 说明 |

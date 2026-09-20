@@ -65,6 +65,40 @@ export function toResourceJson(r: typeof resources.$inferSelect) {
 }
 
 export function resourcesRoutes(app: OpenAPIHono<AppEnv>): void {
+  // GET /public/resources/{id}/file —— 公开直出（免认证）：仅当资源所属 memo
+  // 为 public 且未归档时放行，供 /timeline 说说页直接 <img> 引用
+  const publicFileRoute = createRoute({
+    method: "get",
+    path: "/public/resources/{id}/file",
+    request: { params: z.object({ id: z.coerce.number() }) },
+    responses: {
+      200: { description: "文件流" },
+      403: { description: "资源不属于公开 memo", content: { "application/json": { schema: errorSchema } } },
+      404: { description: "资源不存在", content: { "application/json": { schema: errorSchema } } },
+    },
+  });
+  app.openapi(publicFileRoute, async (c) => {
+    const { id } = c.req.valid("param");
+    const db = createDb(c.env);
+    const row = await db.select().from(resources).where(eq(resources.id, id)).get();
+    if (!row || row.memoId === null) {
+      return c.json({ error: { code: "NOT_FOUND", message: "资源不存在" } }, 404);
+    }
+    const memo = await db.select().from(memos).where(eq(memos.id, row.memoId)).get();
+    if (!memo || memo.visibility !== "public" || memo.rowStatus !== "normal") {
+      return c.json({ error: { code: "FORBIDDEN", message: "资源不公开" } }, 403);
+    }
+    const obj = await c.env.ASSETS.get(row.storageKey);
+    if (!obj || !obj.body) {
+      return c.json({ error: { code: "NOT_FOUND", message: "资源文件缺失" } }, 404);
+    }
+    return c.body(obj.body, 200, {
+      "Content-Type": row.type,
+      "Content-Length": String(row.size),
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+  });
+
   app.use("/resources", authMiddleware);
   app.use("/resources/*", authMiddleware);
 
