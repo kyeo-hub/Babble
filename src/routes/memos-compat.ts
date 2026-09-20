@@ -79,6 +79,14 @@ function parseMemoRef(ref: string): string {
   return ref.startsWith("memos/") ? ref.slice(6) : ref;
 }
 
+/** base64 → bytes（Worker 环境用 atob） */
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
 export function memosCompatRoutes(app: Hono<CompatEnv>): void {
   const compat = new Hono<CompatEnv>();
 
@@ -296,32 +304,72 @@ export function memosCompatRoutes(app: Hono<CompatEnv>): void {
     return c.json({ tags: [...counts.entries()].map(([name, count]) => ({ name, count })) });
   });
 
-  // POST /attachments —— 附件上传（multipart 字段名 file / filename）
+  // POST /attachments —— 附件上传，双协议：
+  // ① 插件 v26：JSON {filename, content: base64, type, memoName?}
+  // ② 其它客户端：multipart（字段 file/filename，可选 memoId）
   compat.post("/api/v1/attachments", async (c) => {
     const userId = await compatUserId(c);
     if (userId === null) return c.json({ error: "unauthenticated" }, 401);
-    const form = await c.req.formData().catch(() => null);
-    const file = form?.get("file") ?? form?.get("filename");
-    if (!(file instanceof File)) return c.json({ error: "file required" }, 400);
     const db = createDb(c.env);
+
+    let bytes: Uint8Array | null = null;
+    let name = "file";
+    let mime = "";
+    let memoId: number | null = null;
+
+    const contentType = c.req.header("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      // 插件 JSON 形态
+      const body = await c.req
+        .json<{ filename?: string; content?: string; type?: string; memoName?: string }>()
+        .catch(() => null);
+      if (!body?.content) return c.json({ error: "content (base64) required" }, 400);
+      name = body.filename || "file";
+      mime = body.type || "";
+      bytes = base64ToBytes(body.content);
+      if (body.memoName) {
+        const ref = parseMemoRef(body.memoName);
+        const memo = /^\d+$/.test(ref)
+          ? await db.select().from(memos).where(and(eq(memos.id, Number(ref)), eq(memos.creatorId, userId))).get()
+          : await db.select().from(memos).where(and(eq(memos.uid, ref), eq(memos.creatorId, userId))).get();
+        if (memo) memoId = memo.id;
+      }
+    } else {
+      // multipart 形态
+      const form = await c.req.formData().catch(() => null);
+      const file = form?.get("file") ?? form?.get("filename");
+      if (!(file instanceof File)) return c.json({ error: "file required" }, 400);
+      name = file.name || "file";
+      mime = file.type || "";
+      bytes = new Uint8Array(await file.arrayBuffer());
+      const memoRef = form?.get("memoId");
+      if (typeof memoRef === "string" && memoRef) {
+        const memo = await db.select().from(memos).where(eq(memos.id, Number(memoRef))).get();
+        if (memo) memoId = memo.id;
+      }
+    }
+
+    if (!bytes || bytes.length === 0) return c.json({ error: "empty file" }, 400);
+
     const uid = genUid();
-    const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-    // 复用资源端点的嗅探逻辑（本地简化：无魔数时退回 file.type）
+    const head = bytes.slice(0, 16);
+    // 魔数嗅探优先，回退声明类型
     const sniffed =
       head[0] === 0xff && head[1] === 0xd8 ? "image/jpeg"
       : head[0] === 0x89 && head[1] === 0x50 ? "image/png"
       : head[0] === 0x47 && head[1] === 0x49 ? "image/gif"
-      : file.type || "application/octet-stream";
-    await c.env.ASSETS.put(uid, file.stream(), { httpMetadata: { contentType: sniffed } });
+      : head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50 ? "image/webp"
+      : mime || "application/octet-stream";
+    await c.env.ASSETS.put(uid, bytes, { httpMetadata: { contentType: sniffed } });
     const row = await db
       .insert(resources)
       .values({
         uid,
-        memoId: null,
+        memoId,
         creatorId: userId,
-        name: file.name || "file",
+        name,
         type: sniffed,
-        size: file.size,
+        size: bytes.length,
         storageKey: uid,
         createdAt: Math.floor(Date.now() / 1000),
       })
